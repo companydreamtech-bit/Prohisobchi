@@ -1,0 +1,648 @@
+<!DOCTYPE html>
+<html lang="uz" data-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="theme-color" content="#062419">
+  <title>Pro Hisobchi</title>
+
+  <!-- Telegram Web App JS SDK -->
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+
+  <!-- Favicon / Logo -->
+  <link rel="icon" type="image/png" href="img/logo.png">
+  <link rel="apple-touch-icon" href="img/logo.png">
+
+  <!-- Asosiy CSS -->
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+  <!-- ==================== APP HEADER ==================== -->
+  <header class="app-header">
+    <div class="header-left">
+      <img src="img/logo.png" alt="Pro Hisobchi" class="header-logo-icon" style="border-radius:10px; object-fit:cover; border:1px solid rgba(16,185,129,0.4);">
+      <div class="header-title-box">
+        <h1>Pro Hisobchi</h1>
+        <span>Ustaxona ERP Tizimi</span>
+      </div>
+    </div>
+    <div class="header-right">
+      <div class="header-kurs-pill" title="Valyuta kursi">
+        <span>$1=</span>
+        <span id="headerKursVal">12 900</span>
+      </div>
+      <button class="user-avatar-btn" id="themeToggleBtn" title="Tungi/Kunduzgi rejim">A</button>
+    </div>
+  </header>
+
+  <!-- ==================== APP CONTAINER ==================== -->
+  <main class="app-container">
+
+    <!-- ========================================================
+         1. BOSH SAHIFA (DASHBOARD) EKRANI
+         ======================================================== -->
+    <section class="view-screen active" id="screen-home">
+      <!-- Hero Banner -->
+      <div class="hero-welcome-card" style="display:flex; justify-content:space-between; align-items:center; gap:12px;">
+        <div style="flex:1;">
+          <h2>Xush kelibsiz!</h2>
+          <p>Oyna-rom va to'rlar sexi boshqaruv tizimi</p>
+          <button class="btn-hero-action" id="btnHeroNewOrder">
+            <span>➕</span>
+            <span>Yangi Buyurtma Olish</span>
+          </button>
+        </div>
+        <img src="img/logo.png" alt="Pro Hisobchi ERP" style="width:74px; height:74px; border-radius:18px; box-shadow:0 6px 18px rgba(0,0,0,0.35); border:1.5px solid rgba(16,185,129,0.5); flex-shrink:0;">
+      </div>
+
+      <!-- 8 ta Modul Menyu Grid -->
+      <div class="menu-modules-grid">
+        <div class="module-card-item" data-goto="yangi">
+          <div class="module-icon-wrap icon-yangi">➕</div>
+          <div class="module-text">
+            <h3>Yangi Buyurtma</h3>
+            <span>O'lcham & Narx</span>
+          </div>
+        </div>
+
+        <div class="module-card-item" data-goto="tarix">
+          <div class="module-icon-wrap icon-tarix">📋</div>
+          <div class="module-text">
+            <h3>Tarix</h3>
+            <span>Buyurtmalar</span>
+          </div>
+        </div>
+
+        <div class="module-card-item" data-goto="kesish">
+          <div class="module-icon-wrap icon-kesish">✂️</div>
+          <div class="module-text">
+            <h3>Kesish (Raskroy)</h3>
+            <span>Tayoq xaritasi</span>
+          </div>
+        </div>
+
+        <div class="module-card-item" data-goto="kalkulyator">
+          <div class="module-icon-wrap icon-kalkulyator">🧮</div>
+          <div class="module-text">
+            <h3>Kalkulyator</h3>
+            <span>Tezkor hisob</span>
+          </div>
+        </div>
+
+        <div class="module-card-item" data-goto="kassa">
+          <div class="module-icon-wrap icon-kassa">💵</div>
+          <div class="module-text">
+            <h3>Kassa</h3>
+            <span>Sof balans</span>
+          </div>
+        </div>
+
+        <div class="module-card-item" data-goto="qarz">
+          <div class="module-icon-wrap icon-qarz">📒</div>
+          <div class="module-text">
+            <h3>Qarz daftari</h3>
+            <span>Haqqim / Qarzim</span>
+          </div>
+        </div>
+
+        <div class="module-card-item" data-goto="ombor">
+          <div class="module-icon-wrap icon-ombor">📦</div>
+          <div class="module-text">
+            <h3>Ombor</h3>
+            <span>BOM & Qoldiqlar</span>
+          </div>
+        </div>
+
+        <div class="module-card-item" data-goto="sozlamalar">
+          <div class="module-icon-wrap icon-sozlama">⚙️</div>
+          <div class="module-text">
+            <h3>Sozlamalar</h3>
+            <span>Profil & Narxlar</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Valyuta kursi banneri -->
+      <div class="kurs-banner-card">
+        <span>💱 Valyuta kursi: 1 USD = 12 900 UZS</span>
+        <button class="ui-badge-link" id="btnUpdateKursHome" style="border:none;background:transparent;">Yangilash 🔄</button>
+      </div>
+    </section>
+
+    <!-- ========================================================
+         2. YANGI BUYURTMA EKRANI
+         ======================================================== -->
+    <section class="view-screen" id="screen-yangi">
+      <div class="ui-card">
+        <div class="ui-card-header">
+          <span class="ui-card-title">👤 Mijoz Ma'lumotlari</span>
+          <div class="pricing-switch-box" style="margin-bottom:0; width:170px;">
+            <button class="pricing-switch-tab active" id="tabChakanaMode">Chakana</button>
+            <button class="pricing-switch-tab" id="tabDilerMode">Diler</button>
+          </div>
+        </div>
+
+        <div class="customer-fields-grid">
+          <div>
+            <label style="font-size: 10px; font-weight:700; color:var(--text-muted);">MIJOZ ISMI</label>
+            <input type="text" id="orderMijozIsm" list="crmMijozlarList" placeholder="Anvar aka" style="width:100%;padding:9px;border-radius:10px;border:1.5px solid var(--border-card);font-size:13px;outline:none;">
+            <datalist id="crmMijozlarList"></datalist>
+          </div>
+          <div>
+            <label style="font-size: 10px; font-weight:700; color:var(--text-muted);">TELEFON</label>
+            <input type="tel" id="orderMijozTel" placeholder="+998 90 123 45 67" style="width:100%;padding:9px;border-radius:10px;border:1.5px solid var(--border-card);font-size:13px;outline:none;">
+          </div>
+        </div>
+
+        <!-- Mini CRM Avtomatik Xabarnomasi -->
+        <div id="orderCrmInfoBadge" style="display:none; background:#E6FBF2; border:1px solid #10B981; border-radius:8px; padding:6px 10px; font-size:11px; margin-bottom:8px;">
+          <span>👤 <b id="crmClientName">Mijoz</b>:</span>
+          <span id="crmClientStats" style="margin-left:4px; color:#062419;">0 ta buyurtma</span>
+        </div>
+
+        <div class="customer-fields-grid" style="margin-top:6px;">
+          <div>
+            <label style="font-size: 10px; font-weight:700; color:var(--text-muted);">PROFIL BRENDI</label>
+            <select id="orderBrendSelect" class="select-round">
+              <option value="standart">Standart (Universal)</option>
+              <option value="akfa">Akfa (Trio / Quattro)</option>
+              <option value="ekapen">EKAPEN Plastik</option>
+              <option value="engelberg">Engelberg 70/80</option>
+              <option value="alutex">Alutex Aluminiy</option>
+            </select>
+          </div>
+          <div>
+            <label style="font-size: 10px; font-weight:700; color:var(--text-muted);">PROFIL RANGI</label>
+            <select id="orderRangSelect" class="select-round">
+              <option value="OQ">OQ</option>
+              <option value="306G">306G (Kulrang)</option>
+              <option value="MOKKO">MOKKO</option>
+              <option value="ZALATOY">ZALATOY DUB</option>
+              <option value="SHEFEL">SHEFEL</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <!-- O'lchamlar kiritish qismi -->
+      <div class="ui-card">
+        <div class="ui-card-header">
+          <span class="ui-card-title">📐 O'lchamlar kiritish</span>
+          <span style="font-size:11px;font-weight:700;color:var(--brand-emerald);" id="orderTotalRowsCount">1 ta to'r</span>
+        </div>
+
+        <div id="orderItemsContainer"></div>
+
+        <button class="btn-outline-pill" id="btnAddOrderRow" style="width:100%; margin-top:8px; padding:10px; text-align:center;">
+          ➕ Yana o'lcham qo'shish
+        </button>
+      </div>
+
+      <!-- To'lov turi -->
+      <div class="ui-card">
+        <div class="ui-card-header">
+          <span class="ui-card-title">💳 To'lov turi</span>
+        </div>
+        <div class="chip-toggle-group" id="paymentTypeChips">
+          <button class="chip-toggle-btn active" data-type="Naqd">💵 Naqd</button>
+          <button class="chip-toggle-btn" data-type="Karta">💳 Karta</button>
+          <button class="chip-toggle-btn" data-type="Nasiya">📒 Nasiya (Qarz)</button>
+        </div>
+      </div>
+
+      <!-- Jami narx va Sticky saqlash tugmasi -->
+      <div class="quick-calc-result-card">
+        <div class="quick-calc-metrics">
+          <div>
+            <div class="metric-item-lbl">Jami kvadratura:</div>
+            <div class="metric-item-val" id="orderSummaryM2">0.00 m²</div>
+          </div>
+          <div style="text-align:right;">
+            <div class="metric-item-lbl">Jami summa ($):</div>
+            <div class="metric-item-val" id="orderSummaryUsd">0.00 $</div>
+          </div>
+        </div>
+        <div class="quick-calc-divider"></div>
+        <div style="display:flex;justify-content:space-between;align-items:center;">
+          <span style="font-size:12px;opacity:0.8;">So'mdagi narx:</span>
+          <span style="font-size:17px;font-weight:800;font-family:var(--font-mono);color:#FFFFFF;" id="orderSummarySom">0 so'm</span>
+        </div>
+      </div>
+
+      <button class="btn-solid-green" id="btnSubmitOrder" style="margin-bottom:20px;">
+        💾 Buyurtmani Saqlash & Guruhga Yuborish
+      </button>
+    </section>
+
+    <!-- ========================================================
+         3. BUYURTMALAR TARIXI EKRANI
+         ======================================================== -->
+    <section class="view-screen" id="screen-tarix">
+      <!-- Qidiruv satri -->
+      <div class="search-bar-wrap">
+        <span class="search-icon">🔍</span>
+        <input type="text" id="orderSearchInput" placeholder="Mijoz ismi yoki telefon raqami...">
+      </div>
+
+      <!-- Status filterlari -->
+      <div class="filter-chips-row">
+        <button class="filter-chip active" data-status="hammasi">Hammasi (<span id="countAllOrders">0</span>)</button>
+        <button class="filter-chip" data-status="Kutilmoqda">Kutilmoqda</button>
+        <button class="filter-chip" data-status="Jarayonda">Jarayonda</button>
+        <button class="filter-chip" data-status="Tayyor">Tayyor</button>
+      </div>
+
+      <!-- Buyurtmalar ro'yxati -->
+      <div id="ordersListContainer"></div>
+    </section>
+
+    <!-- ========================================================
+         4. KESISH REJASI (1D RASKROY) EKRANI
+         ======================================================== -->
+    <section class="view-screen" id="screen-kesish">
+      <!-- Yuqori statistika 3 ta blok -->
+      <div class="cutting-summary-grid">
+        <div class="cutting-stat-box">
+          <h5>Jami tayoq</h5>
+          <div class="stat-num" id="cutStatTotalBars">0 ta</div>
+        </div>
+        <div class="cutting-stat-box">
+          <h5>Samaradorlik</h5>
+          <div class="stat-num green" id="cutStatEfficiency">0%</div>
+        </div>
+        <div class="cutting-stat-box">
+          <h5>Chiqindi</h5>
+          <div class="stat-num red" id="cutStatWaste">0 sm</div>
+        </div>
+      </div>
+
+      <!-- Qoldiqlardan foydalanish switchi -->
+      <div class="ui-card" style="padding:10px 14px; display:flex; justify-content:space-between; align-items:center;">
+        <span style="font-size:12px; font-weight:700;">📦 Ombordagi qoldiqlarni hisobga olish</span>
+        <input type="checkbox" id="cutUseStockSwitch" checked style="width:20px; height:20px; accent-color:var(--brand-emerald);">
+      </div>
+
+      <!-- Vizual Kesish Lentalari -->
+      <div class="ui-card">
+        <div class="ui-card-header">
+          <span class="ui-card-title">Visual Kesish Lentalari (600 sm)</span>
+        </div>
+        <div id="cuttingVisualBarsContainer"></div>
+      </div>
+
+      <!-- Amallar: Guruhga yuborish, chop etish va nusxalash -->
+      <button class="btn-solid-green" id="btnSendCuttingTelegram" style="margin-bottom:8px;">
+        ✈️ Sex Guruhiga Yuborish
+      </button>
+      <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:6px;">
+        <button class="btn-outline-pill" id="btnPrintCuttingPdf" style="text-align:center;">🖨️ Chop etish</button>
+        <button class="btn-outline-pill" id="btnCopyCuttingClipboard" style="text-align:center;">📋 Nusxalash</button>
+        <button class="btn-outline-pill" id="btnRecalculateCut" style="text-align:center;">📑 Qayta hisob</button>
+      </div>
+    </section>
+
+    <!-- ========================================================
+         5. KASSA EKRANI
+         ======================================================== -->
+    <section class="view-screen" id="screen-kassa">
+      <!-- Kassa Katta Zumrad Kartasi -->
+      <div class="kassa-hero-card">
+        <div class="kassa-hero-label">KASSA BALANSI</div>
+        <div class="kassa-hero-balance" id="kassaMainBalanceSom">0 so'm</div>
+        <div class="kassa-pills-row">
+          <div class="kassa-pill">
+            <div class="kassa-pill-label">+ Kirim</div>
+            <div class="kassa-pill-val green" id="kassaPillKirim">+0 so'm</div>
+          </div>
+          <div class="kassa-pill">
+            <div class="kassa-pill-label">- Chiqim</div>
+            <div class="kassa-pill-val red" id="kassaPillChiqim">-0 so'm</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Kirim / Chiqim tugmalari -->
+      <div class="kassa-action-grid">
+        <button class="btn-kassa-kirim" id="btnOpenKirimModal">
+          <span>➕</span> Kirim
+        </button>
+        <button class="btn-kassa-chiqim" id="btnOpenChiqimModal">
+          <span>➖</span> Chiqim
+        </button>
+      </div>
+
+      <!-- Kassa Telegram hisoboti va CSV eksport -->
+      <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-bottom:12px;">
+        <button class="btn-solid-green" id="btnSendKassaTelegram" style="padding:10px 8px; font-size:12px;">
+          ✈️ Hisobotni TGga yuborish
+        </button>
+        <button class="btn-outline-pill" id="btnExportKassaCsv" style="text-align:center; padding:10px 8px; font-size:12px;">
+          📊 Excel (CSV) yuklab olish
+        </button>
+      </div>
+
+      <!-- Amallar ro'yxati -->
+      <div class="ui-card">
+        <div class="ui-card-header">
+          <span class="ui-card-title">Amallar tarixi</span>
+          <span style="font-size:11px;color:var(--text-muted);">Bu oy</span>
+        </div>
+        <div id="kassaTrxList"></div>
+      </div>
+    </section>
+
+    <!-- ========================================================
+         6. MIJOZ HISOBI & QARZ DAFTARI EKRANI
+         ======================================================== -->
+    <section class="view-screen" id="screen-qarz">
+      <!-- 2 ta statistika kartasi -->
+      <div class="qarz-stats-grid">
+        <div class="qarz-stat-card green">
+          <div class="qarz-stat-label">Menga berishi kerak</div>
+          <div class="qarz-stat-val green" id="qarzValHaqqim">0 so'm</div>
+        </div>
+        <div class="qarz-stat-card red">
+          <div class="qarz-stat-label">Men berishim kerak</div>
+          <div class="qarz-stat-val red" id="qarzValQarzim">0 so'm</div>
+        </div>
+      </div>
+
+      <!-- Filter tabs -->
+      <div class="filter-chips-row">
+        <button class="filter-chip active" data-qfilter="hammasi">Barcha qarzlar</button>
+        <button class="filter-chip" data-qfilter="haqqim">Mijozlar (Haqqim)</button>
+        <button class="filter-chip" data-qfilter="qarzim">Ta'minotchilar (Qarzim)</button>
+      </div>
+
+      <!-- Qarz kartalari ro'yxati -->
+      <div id="qarzCardsList"></div>
+
+      <!-- Yangi qarz yozish va Excel eksport tugmalari -->
+      <button class="btn-solid-green" id="btnOpenNewQarzModal" style="margin-top:10px;">
+        ➕ Yangi Nasiya / Qarz yozish
+      </button>
+      <button class="btn-outline-pill" id="btnExportQarzCsv" style="width:100%; margin-top:8px; text-align:center;">
+        📊 Qarzlar Daftari Excel (CSV) yuklab olish
+      </button>
+    </section>
+
+    <!-- ========================================================
+         7. TEZKOR KALKULYATOR EKRANI
+         ======================================================== -->
+    <section class="view-screen" id="screen-kalkulyator">
+      <div class="ui-card">
+        <div class="ui-card-header">
+          <span class="ui-card-title">🧮 Tezkor Kalkulyator</span>
+        </div>
+
+        <!-- Profil tanlash chiplari -->
+        <label style="font-size:10px;font-weight:700;color:var(--text-muted);text-transform:uppercase;">PROFIL TURI</label>
+        <div class="chip-toggle-group" id="quickCalcProfilChips" style="margin-top:4px;">
+          <button class="chip-toggle-btn active" data-profil="kichik">Rom (Kichik)</button>
+          <button class="chip-toggle-btn" data-profil="katta">Eshik (Katta)</button>
+          <button class="chip-toggle-btn" data-profil="haytek">Setka (Haytek)</button>
+        </div>
+
+        <!-- Narx toifasi switch -->
+        <div class="pricing-switch-box">
+          <button class="pricing-switch-tab active" id="qcTabChakana">Chakana (Odatdagi narx)</button>
+          <button class="pricing-switch-tab" id="qcTabDiler">Diler (Ulgurji narx)</button>
+        </div>
+
+        <!-- O'lchamlar kiritish -->
+        <div class="dimensions-pair-grid">
+          <div class="dim-input-box">
+            <label>ENI (sm)</label>
+            <input type="number" id="qcInputEni" value="60">
+          </div>
+          <div class="dim-input-box">
+            <label>BO'YI (sm)</label>
+            <input type="number" id="qcInputBoy" value="140">
+          </div>
+        </div>
+
+        <!-- Soni counter (- / +) -->
+        <label style="font-size:10px;font-weight:700;color:var(--text-muted);text-transform:uppercase;">BUYURTMA SONI</label>
+        <div class="counter-widget" style="margin-top:4px;">
+          <button class="btn-counter" id="qcBtnMinus">−</button>
+          <span class="counter-value" id="qcCounterVal">1</span>
+          <button class="btn-counter" id="qcBtnPlus">+</button>
+        </div>
+
+        <!-- Yashil Natija Kartasi -->
+        <div class="quick-calc-result-card">
+          <div class="quick-calc-metrics">
+            <div>
+              <div class="metric-item-lbl">Umumiy kvadratura:</div>
+              <div class="metric-item-val" id="qcResultM2">0.84 m²</div>
+            </div>
+            <div style="text-align:right;">
+              <div class="metric-item-lbl">Jami narx ($):</div>
+              <div class="metric-item-val" id="qcResultUsd">19.32 $</div>
+            </div>
+          </div>
+          <div class="quick-calc-divider"></div>
+          <div style="display:flex;justify-content:space-between;align-items:center;">
+            <span style="font-size:12px;opacity:0.8;">So'mda:</span>
+            <span style="font-size:17px;font-weight:800;font-family:var(--font-mono);color:#FFFFFF;" id="qcResultSom">249 200 so'm</span>
+          </div>
+        </div>
+
+        <button class="btn-solid-green" id="qcBtnAddToOrder" style="margin-bottom:8px;">
+          🛒 Buyurtmaga qo'shish
+        </button>
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px;">
+          <button class="btn-outline-pill" id="qcBtnKassaKirim" style="text-align:center; color:#059669; border-color:#10B981;">
+            🟢 Kassaga Kirim
+          </button>
+          <button class="btn-outline-pill" id="qcBtnKassaChiqim" style="text-align:center; color:#EF4444; border-color:#EF4444;">
+            🔴 Kassaga Chiqim
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ========================================================
+         8. XOMASHYO & QOLDIQLAR OMBORI EKRANI
+         ======================================================== -->
+    <section class="view-screen" id="screen-ombor">
+      <div class="pricing-switch-box" style="margin-bottom:12px;">
+        <button class="pricing-switch-tab active" id="tabOmborMateriallar">Xomashyo & Mahsulotlar</button>
+        <button class="pricing-switch-tab" id="tabOmborQoldiqlar">Qoldiq Profillar (100sm+)</button>
+      </div>
+
+      <div class="ui-card">
+        <div id="omborViewMateriallar">
+          <div class="ui-card-header">
+            <span class="ui-card-title">Mavjud Xomashyolar Zaxirasi</span>
+          </div>
+          <div id="omborMaterialsListContainer"></div>
+        </div>
+
+        <div id="omborViewQoldiqlar" style="display:none;">
+          <div class="ui-card-header">
+            <span class="ui-card-title">100 sm+ Qoldiq Tayoqlar</span>
+          </div>
+          <div id="omborRemnantsListContainer"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ========================================================
+         9. SOZLAMALAR EKRANI
+         ======================================================== -->
+    <section class="view-screen" id="screen-sozlamalar">
+      <div class="ui-card">
+        <div class="ui-card-header">
+          <span class="ui-card-title">⚙️ Profillar Narxi ($/m²)</span>
+        </div>
+        <div id="sozlamaProfillarTable"></div>
+      </div>
+
+      <!-- Multi-Brend Profil Konstruktori -->
+      <div class="ui-card">
+        <div class="ui-card-header">
+          <span class="ui-card-title">🏷️ Profil Brendlari & Dopusklari</span>
+        </div>
+        <div id="sozlamaBrendlarTable"></div>
+      </div>
+
+      <div class="ui-card">
+        <div class="ui-card-header">
+          <span class="ui-card-title">✈️ Telegram Guruh & Bot</span>
+        </div>
+        <div style="margin-bottom:8px;">
+          <label style="font-size:11px;font-weight:700;color:var(--text-muted);">BOT TOKEN</label>
+          <input type="text" id="cfgBotTokenInput" style="width:100%;padding:8px;border-radius:8px;border:1px solid var(--border-card);font-size:12px;">
+        </div>
+        <div style="margin-bottom:12px;">
+          <label style="font-size:11px;font-weight:700;color:var(--text-muted);">SEX GURUHI CHAT ID</label>
+          <input type="text" id="cfgChatIdInput" style="width:100%;padding:8px;border-radius:8px;border:1px solid var(--border-card);font-size:12px;">
+        </div>
+        <button class="btn-solid-green" id="btnSaveTelegramSettings">Telegram Sozlamalarini Saqlash</button>
+      </div>
+
+      <div class="ui-card">
+        <div class="ui-card-header">
+          <span class="ui-card-title">💾 Ma'lumotlarni Saqlash / Tiklash (Excel & JSON)</span>
+        </div>
+        <button class="btn-solid-green" id="btnExportOrdersCsv" style="margin-bottom:8px; padding:10px; font-size:12px;">
+          📊 Buyurtmalar Tarixi Excel (CSV) yuklab olish
+        </button>
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px;">
+          <button class="btn-outline-pill" id="btnExportJsonFile" style="text-align:center;">📥 JSON Eksport</button>
+          <button class="btn-outline-pill" id="btnImportJsonFile" style="text-align:center;">📤 JSON Tiklash</button>
+        </div>
+        <input type="file" id="backupFileInput" accept=".json" style="display:none;">
+      </div>
+    </section>
+
+  </main>
+
+  <!-- ==================== BOTTOM NAVIGATION BAR ==================== -->
+  <nav class="bottom-nav-bar" id="bottomNavBar">
+    <button class="nav-item-btn active" data-nav="home">
+      <span class="nav-icon">🏠</span>
+      <span>Bosh sahifa</span>
+    </button>
+    <button class="nav-item-btn" data-nav="tarix">
+      <span class="nav-icon">📋</span>
+      <span>Buyurtmalar</span>
+    </button>
+    <button class="nav-item-btn" data-nav="kesish">
+      <span class="nav-icon">✂️</span>
+      <span>Kesish</span>
+    </button>
+    <button class="nav-item-btn" data-nav="kassa">
+      <span class="nav-icon">💵</span>
+      <span>Kassa</span>
+    </button>
+    <button class="nav-item-btn" data-nav="qarz">
+      <span class="nav-icon">📒</span>
+      <span>Qarzlar</span>
+    </button>
+  </nav>
+
+  <!-- ==================== MODAL OYNALAR ==================== -->
+
+  <!-- 1. Kassa Kirim/Chiqim Modali -->
+  <div class="modal-overlay" id="modalKassaOverlay">
+    <div class="modal-sheet">
+      <div class="modal-header">
+        <span class="modal-title" id="modalKassaTitle">💵 Yangi Tranzaksiya</span>
+        <button class="modal-close-btn" id="btnCloseKassaModal">✕</button>
+      </div>
+      <div class="modal-body">
+        <div style="margin-bottom:12px;">
+          <label style="font-size:10px;font-weight:700;color:var(--text-muted);display:block;margin-bottom:4px;">SUMMA (SO'MDA)</label>
+          <input type="number" id="modalKassaSummaInput" placeholder="Masalan: 500000" style="font-size:18px;font-weight:800;font-family:var(--font-mono);width:100%;padding:10px;border-radius:10px;border:1.5px solid var(--border-card);">
+        </div>
+        <div style="margin-bottom:12px;">
+          <label style="font-size:10px;font-weight:700;color:var(--text-muted);display:block;margin-bottom:4px;">MAQSAD / IZOH</label>
+          <input type="text" id="modalKassaIzohInput" placeholder="Masalan: Usta oyligi yoki profil xaridi" style="width:100%;padding:10px;border-radius:10px;border:1.5px solid var(--border-card);font-size:13px;">
+        </div>
+        <button class="btn-solid-green" id="btnSubmitKassaModal">Kassaga Saqlash</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 2. Yangi Qarz Modali -->
+  <div class="modal-overlay" id="modalQarzOverlay">
+    <div class="modal-sheet">
+      <div class="modal-header">
+        <span class="modal-title">📒 Yangi Nasiya / Qarz</span>
+        <button class="modal-close-btn" id="btnCloseQarzModal">✕</button>
+      </div>
+      <div class="modal-body">
+        <div style="margin-bottom:10px;">
+          <label style="font-size:10px;font-weight:700;color:var(--text-muted);display:block;margin-bottom:4px;">QARZ TURI</label>
+          <div class="chip-toggle-group" id="modalQarzTypeGroup">
+            <button class="chip-toggle-btn active" data-qtur="haqqim">🟢 Haqqim (Mijoz qarzi)</button>
+            <button class="chip-toggle-btn" data-qtur="qarzim">🔴 Qarzim (Mening qarzim)</button>
+          </div>
+        </div>
+        <div style="margin-bottom:10px;">
+          <label style="font-size:10px;font-weight:700;color:var(--text-muted);display:block;margin-bottom:4px;">SHAXS ISMI / BAZA</label>
+          <input type="text" id="modalQarzShaxsInput" placeholder="Masalan: Mansur aka" style="width:100%;padding:9px;border-radius:10px;border:1.5px solid var(--border-card);font-size:13px;">
+        </div>
+        <div style="margin-bottom:10px;">
+          <label style="font-size:10px;font-weight:700;color:var(--text-muted);display:block;margin-bottom:4px;">SUMMA (SO'M)</label>
+          <input type="number" id="modalQarzSummaInput" placeholder="350000" style="font-size:17px;font-weight:800;font-family:var(--font-mono);width:100%;padding:9px;border-radius:10px;border:1.5px solid var(--border-card);">
+        </div>
+        <div style="margin-bottom:12px;">
+          <label style="font-size:10px;font-weight:700;color:var(--text-muted);display:block;margin-bottom:4px;">TELEFON VA IZOH</label>
+          <input type="text" id="modalQarzIzohInput" placeholder="Izoh yoki telefon" style="width:100%;padding:9px;border-radius:10px;border:1.5px solid var(--border-card);font-size:13px;">
+        </div>
+        <button class="btn-solid-green" id="btnSubmitQarzModal">Qarz Daftariga Saqlash</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 3. Buyurtma Tafsiloti va Chek Modali -->
+  <div class="modal-overlay" id="modalOrderOverlay">
+    <div class="modal-sheet">
+      <div class="modal-header">
+        <span class="modal-title" id="modalOrderTitle">🧾 Buyurtma Tafsiloti</span>
+        <button class="modal-close-btn" id="btnCloseOrderModal">✕</button>
+      </div>
+      <div class="modal-body" id="modalOrderBody"></div>
+      <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:6px; margin-top:10px;">
+        <button class="btn-solid-green" id="modalOrderBtnTelegram" style="padding:10px 6px; font-size:12px;">✈️ TG Yuborish</button>
+        <button class="btn-outline-pill" id="modalOrderBtnCopy" style="padding:10px 6px; font-size:12px; text-align:center;">📋 Nusxa olish</button>
+        <button class="btn-outline-pill" id="modalOrderBtnPrint" style="padding:10px 6px; font-size:12px; text-align:center;">🖨️ Chop etish</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast Bildirishnoma -->
+  <div id="appToast" class="app-toast-box">
+    <span id="toastIcon">✅</span>
+    <span id="toastMsg">Amal bajarildi!</span>
+  </div>
+
+  <!-- Asosiy JS Modul -->
+  <script type="module" src="js/app.js"></script>
+</body>
+</html>
