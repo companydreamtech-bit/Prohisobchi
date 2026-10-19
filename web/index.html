@@ -2,7 +2,7 @@
 <html lang="uz" data-theme="light">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="theme-color" content="#062419">
   <title>Pro Hisobchi</title>
@@ -262,6 +262,38 @@
          4. KESISH REJASI (1D RASKROY) EKRANI
          ======================================================== -->
     <section class="view-screen" id="screen-kesish">
+      <!-- O'lchamlar kiritish kartochkasi -->
+      <div class="ui-card">
+        <div class="ui-card-header">
+          <span class="ui-card-title">✂️ Kesish uchun o'lchamlar</span>
+          <button class="ui-badge-link" id="btnSyncCuttingFromOrder" style="border:none;background:transparent;cursor:pointer;">📋 Buyurtmadan olish</button>
+        </div>
+
+        <!-- Profil brendi tanlash -->
+        <div style="margin-bottom:10px;">
+          <label style="font-size:10px;font-weight:700;color:var(--text-muted);display:block;margin-bottom:4px;">PROFIL BRENDI</label>
+          <select id="cuttingBrendSelect" class="select-round">
+            <option value="standart">Standart (Universal)</option>
+            <option value="akfa">Akfa (Trio / Quattro)</option>
+            <option value="ekapen">EKAPEN Plastik</option>
+            <option value="engelberg">Engelberg 70/80</option>
+            <option value="alutex">Alutex Aluminiy</option>
+          </select>
+        </div>
+
+        <!-- Kesish o'lchamlari ro'yxati -->
+        <div id="cuttingOrderItemsContainer"></div>
+
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-top:10px;">
+          <button class="btn-outline-pill" id="btnAddCuttingItemRow" style="padding:10px 6px; text-align:center; font-size:12px;">
+            ➕ O'lcham qo'shish
+          </button>
+          <button class="btn-solid-green" id="btnExecuteCuttingCalc" style="padding:10px 6px; text-align:center; font-size:12px;">
+            ⚡ Kesishni hisoblash
+          </button>
+        </div>
+      </div>
+
       <!-- Yuqori statistika 3 ta blok -->
       <div class="cutting-summary-grid">
         <div class="cutting-stat-box">

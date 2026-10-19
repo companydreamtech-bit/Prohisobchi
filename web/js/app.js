@@ -69,7 +69,7 @@ const telegramUserId = window.Telegram?.WebApp?.initDataUnsafe?.user?.id || 'def
 const storagePrefix = `prohisobchi_${telegramUserId}_`;
 
 let state = {
-  kurs: 12900,
+  kurs: parseFloat(localStorage.getItem('prohisobchi_kurs')) || 12900,
   currentScreen: 'home',
   theme: localStorage.getItem('prohisobchi_theme') || 'light',
   profillar: JSON.parse(localStorage.getItem(storagePrefix + 'profillar')) || DEFAULT_PROFILLAR,
@@ -115,6 +115,10 @@ let state = {
   orderRows: [
     { id: 1, profilId: 1, eni: '51.5', boy: '153.0', soni: 1, tur: 'yonga' }
   ],
+  cuttingRows: [
+    { id: 1, profilId: 1, eni: '60', boy: '140', soni: 2, tur: 'yonga' }
+  ],
+  cuttingSelectedBrendId: 'standart',
   orderNarxTuri: 'chakana',
   orderTolovTuri: 'Naqd',
   nextRowId: 2,
@@ -477,7 +481,7 @@ function openOrderDetailModal(order) {
       ${rowsHtml}
     </div>
 
-    <div style="background:#E6FBF2; border:1px solid #10B981; border-radius:10px; padding:12px; margin-bottom:8px; display:flex; justify-content:space-between; align-items:center;">
+    <div style="background:#E6FBF2; border:1px solid #10B981; border-radius:10px; padding:12px; margin-bottom:10px; display:flex; justify-content:space-between; align-items:center;">
       <div>
         <div style="font-size:11px; color:#059669; font-weight:700;">JAMI SUMMA:</div>
         <div style="font-size:18px; font-weight:800; font-family:var(--font-mono); color:#062419;">${formatSom(order.jamiSom)} so'm</div>
@@ -487,7 +491,46 @@ function openOrderDetailModal(order) {
         <div style="font-size:11px; color:#64748B;">${order.jamiM2} m² (${order.jamiSoni} dona)</div>
       </div>
     </div>
+
+    <!-- Buyurtma holatini o'zgartirish chiplari -->
+    <div style="margin-bottom:8px;">
+      <span style="font-size:11px; font-weight:700; color:var(--text-muted); display:block; margin-bottom:6px;">BUYURTMA HOLATI:</span>
+      <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:6px;">
+        <button type="button" class="btn-change-status" data-st="Kutilmoqda" style="padding:7px 4px; font-size:11px; font-weight:700; border-radius:8px; border:1.5px solid #F59E0B; background:${order.status === 'Kutilmoqda' ? '#FEF3C7' : 'transparent'}; color:#D97706; cursor:pointer;">⏳ Kutilmoqda</button>
+        <button type="button" class="btn-change-status" data-st="Jarayonda" style="padding:7px 4px; font-size:11px; font-weight:700; border-radius:8px; border:1.5px solid #3B82F6; background:${order.status === 'Jarayonda' ? '#EFF6FF' : 'transparent'}; color:#2563EB; cursor:pointer;">⚙️ Jarayonda</button>
+        <button type="button" class="btn-change-status" data-st="Tayyor" style="padding:7px 4px; font-size:11px; font-weight:700; border-radius:8px; border:1.5px solid #10B981; background:${order.status === 'Tayyor' ? '#D1FAE5' : 'transparent'}; color:#059669; cursor:pointer;">✅ Tayyor</button>
+      </div>
+    </div>
+
+    <!-- O'chirish tugmasi -->
+    <div style="text-align:center; margin-top:8px;">
+      <button type="button" id="btnDeleteDetailOrder" style="background:transparent; border:none; color:#EF4444; font-size:12px; font-weight:700; cursor:pointer; padding:6px 12px;">
+        🗑 Ushbu buyurtmani o'chirish
+      </button>
+    </div>
   `;
+
+  // Statusni o'zgartirish hodisalari
+  body.querySelectorAll('.btn-change-status').forEach(btn => {
+    btn.addEventListener('click', () => {
+      order.status = btn.dataset.st;
+      localStorage.setItem(storagePrefix + 'buyurtmalar', JSON.stringify(state.buyurtmalar));
+      openOrderDetailModal(order);
+      renderOrdersHistory();
+      showToast(`Buyurtma holati: ${order.status}`, '🔄');
+    });
+  });
+
+  // O'chirish hodisasi
+  body.querySelector('#btnDeleteDetailOrder')?.addEventListener('click', () => {
+    if (confirm(`Haqiqatan ham #${order.id} raqamli buyurtmani o'chirmoqchimisiz?`)) {
+      state.buyurtmalar = state.buyurtmalar.filter(b => b.id !== order.id);
+      localStorage.setItem(storagePrefix + 'buyurtmalar', JSON.stringify(state.buyurtmalar));
+      overlay.classList.remove('active');
+      renderOrdersHistory();
+      showToast('Buyurtma o\'chirildi!', '🗑');
+    }
+  });
 
   overlay.classList.add('active');
 }
@@ -552,9 +595,10 @@ function renderOrdersHistory() {
     });
 
     card.querySelector('.btn-cut-order').addEventListener('click', () => {
-      state.orderRows = JSON.parse(JSON.stringify(order.qatorlar));
+      state.cuttingRows = JSON.parse(JSON.stringify(order.qatorlar));
+      state.cuttingSelectedBrendId = order.brendId || 'standart';
       navigateToScreen('kesish');
-      runCuttingLogic();
+      renderCuttingScreen();
     });
 
     container.appendChild(card);
@@ -565,14 +609,97 @@ function renderOrdersHistory() {
 // 3. GURUHLANGAN 1D RASKROY (KESISH REJASI) LOGIKASI
 // ==========================================================================
 
-function runCuttingLogic() {
-  const validRows = state.orderRows.filter(r => parseFloat(r.eni) > 0 && parseFloat(r.boy) > 0);
+function renderCuttingOrderRows() {
+  const container = document.getElementById('cuttingOrderItemsContainer');
+  if (!container) return;
+
+  container.innerHTML = '';
+  if (!state.cuttingRows || state.cuttingRows.length === 0) {
+    state.cuttingRows = [
+      { id: Date.now(), profilId: 1, eni: '', boy: '', soni: 1, tur: 'yonga' }
+    ];
+  }
+
+  state.cuttingRows.forEach((row, idx) => {
+    const box = document.createElement('div');
+    box.className = 'order-row-box';
+
+    box.innerHTML = `
+      <div class="order-row-top">
+        <span style="font-size:12px; font-weight:800; color:var(--text-primary);">${idx + 1}-o'lcham (Kesish)</span>
+        ${state.cuttingRows.length > 1 ? `<button class="del-cut-row-btn" data-id="${row.id}" style="background:#FEE8E8;color:#EF4444;border:none;border-radius:6px;width:24px;height:24px;font-weight:700;cursor:pointer;">✕</button>` : ''}
+      </div>
+
+      <div class="konstruksiya-chips-flow">
+        ${Object.values(KONSTRUKSIYA_TURLARI).map(k => `
+          <button type="button" class="konstruksiya-chip-btn ${row.tur === k.id ? 'active' : ''}" data-cutid="${row.id}" data-tur="${k.id}">
+            <span>${k.belgi}</span> <span>${k.nom}</span>
+          </button>
+        `).join('')}
+      </div>
+
+      <div class="order-row-nums">
+        <div>
+          <label style="font-size:9px;font-weight:700;color:var(--text-muted);display:block;text-align:center;">ENI (sm)</label>
+          <input type="number" step="0.1" class="inp-cut-eni" data-id="${row.id}" value="${row.eni}" placeholder="60">
+        </div>
+        <div>
+          <label style="font-size:9px;font-weight:700;color:var(--text-muted);display:block;text-align:center;">BO'YI (sm)</label>
+          <input type="number" step="0.1" class="inp-cut-boy" data-id="${row.id}" value="${row.boy}" placeholder="140">
+        </div>
+        <div>
+          <label style="font-size:9px;font-weight:700;color:var(--text-muted);display:block;text-align:center;">SONI</label>
+          <input type="number" min="1" class="inp-cut-soni" data-id="${row.id}" value="${row.soni || 1}">
+        </div>
+      </div>
+    `;
+
+    box.querySelectorAll('.konstruksiya-chip-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        row.tur = btn.dataset.tur;
+        renderCuttingOrderRows();
+        runCuttingLogic(false);
+      });
+    });
+
+    box.querySelector('.inp-cut-eni')?.addEventListener('input', (e) => {
+      row.eni = e.target.value;
+    });
+
+    box.querySelector('.inp-cut-boy')?.addEventListener('input', (e) => {
+      row.boy = e.target.value;
+    });
+
+    box.querySelector('.inp-cut-soni')?.addEventListener('input', (e) => {
+      row.soni = parseInt(e.target.value) || 1;
+    });
+
+    box.querySelector('.del-cut-row-btn')?.addEventListener('click', () => {
+      state.cuttingRows = state.cuttingRows.filter(r => r.id !== row.id);
+      renderCuttingOrderRows();
+      runCuttingLogic(false);
+    });
+
+    container.appendChild(box);
+  });
+}
+
+function runCuttingLogic(showToastMsg = false) {
+  const validRows = (state.cuttingRows || []).filter(r => parseFloat(r.eni) > 0 && parseFloat(r.boy) > 0);
+  const barsContainer = document.getElementById('cuttingVisualBarsContainer');
+
   if (validRows.length === 0) {
-    showToast('Avval o\'lchamlarni kiriting!', '⚠️');
+    document.getElementById('cutStatTotalBars').textContent = '0 ta';
+    document.getElementById('cutStatEfficiency').textContent = '0%';
+    document.getElementById('cutStatWaste').textContent = '0 sm';
+    if (barsContainer) {
+      barsContainer.innerHTML = '<div style="text-align:center;padding:20px;color:var(--text-muted);font-size:12px;">Kesish hisoblash uchun yuqoridagi maydonlarga ENI va BO\'YI o\'lchamlarini kiriting yoki "Buyurtmadan olish" tugmasini bosing.</div>';
+    }
+    if (showToastMsg) showToast('Avval o\'lchamlarni kiriting!', '⚠️');
     return;
   }
 
-  const tanlanganBrend = state.brendlar.find(b => b.id === state.selectedBrendId) || state.brendlar[0];
+  const tanlanganBrend = state.brendlar.find(b => b.id === (state.cuttingSelectedBrendId || state.selectedBrendId)) || state.brendlar[0];
   const detallar = generatsiyaDetallar(validRows, tanlanganBrend);
 
   const useStock = document.getElementById('cutUseStockSwitch')?.checked ?? true;
@@ -592,7 +719,6 @@ function runCuttingLogic() {
   document.getElementById('cutStatEfficiency').textContent = `${guruhlangan.umumiySamaradorlik}%`;
   document.getElementById('cutStatWaste').textContent = `${guruhlangan.jamiIsrofBarcha} sm`;
 
-  const barsContainer = document.getElementById('cuttingVisualBarsContainer');
   if (barsContainer) {
     barsContainer.innerHTML = '';
     const colors = ['#10B981', '#059669', '#34D399', '#0D3B2C', '#3B82F6', '#8B5CF6'];
@@ -643,13 +769,18 @@ function runCuttingLogic() {
     });
   }
 
-  showToast(`Kesish xaritasi tuzildi: ${guruhlangan.umumiySamaradorlik}% samaradorlik!`, '✂️');
+  if (showToastMsg) {
+    showToast(`Kesish xaritasi tuzildi: ${guruhlangan.umumiySamaradorlik}% samaradorlik!`, '✂️');
+  }
 }
 
 function renderCuttingScreen() {
-  if (!state.lastCuttingResult) {
-    runCuttingLogic();
+  const brendSel = document.getElementById('cuttingBrendSelect');
+  if (brendSel) {
+    brendSel.value = state.cuttingSelectedBrendId || state.selectedBrendId || 'standart';
   }
+  renderCuttingOrderRows();
+  runCuttingLogic(false);
 }
 
 // ==========================================================================
@@ -948,6 +1079,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const data = await res.json();
       if (data?.rates?.UZS) {
         state.kurs = Math.round(data.rates.UZS);
+        localStorage.setItem('prohisobchi_kurs', state.kurs);
         document.getElementById('headerKursVal').textContent = formatSom(state.kurs);
         updateOrderSummary();
         showToast(`Kurs yangilandi: 1$ = ${formatSom(state.kurs)} so'm`, '💱');
@@ -1015,17 +1147,62 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   // Kesish
+  document.getElementById('btnAddCuttingItemRow')?.addEventListener('click', () => {
+    state.cuttingRows.push({
+      id: Date.now(),
+      profilId: 1,
+      eni: '',
+      boy: '',
+      soni: 1,
+      tur: 'yonga'
+    });
+    renderCuttingOrderRows();
+  });
+
+  document.getElementById('btnExecuteCuttingCalc')?.addEventListener('click', () => {
+    runCuttingLogic(true);
+  });
+
+  document.getElementById('btnSyncCuttingFromOrder')?.addEventListener('click', () => {
+    if (!state.orderRows || state.orderRows.length === 0) {
+      showToast('Yangi buyurtmada hali o\'lchamlar yo\'q!', '⚠️');
+      return;
+    }
+    state.cuttingRows = JSON.parse(JSON.stringify(state.orderRows));
+    state.cuttingSelectedBrendId = state.selectedBrendId || 'standart';
+    const brendSel = document.getElementById('cuttingBrendSelect');
+    if (brendSel) brendSel.value = state.cuttingSelectedBrendId;
+    renderCuttingOrderRows();
+    runCuttingLogic(true);
+    showToast('Buyurtmadagi o\'lchamlar yuklandi!', '📋');
+  });
+
+  document.getElementById('cuttingBrendSelect')?.addEventListener('change', (e) => {
+    state.cuttingSelectedBrendId = e.target.value;
+    runCuttingLogic(false);
+  });
+
+  document.getElementById('cutUseStockSwitch')?.addEventListener('change', () => {
+    runCuttingLogic(false);
+  });
+
   document.getElementById('btnSendCuttingTelegram')?.addEventListener('click', async () => {
+    const validRows = (state.cuttingRows || []).filter(r => parseFloat(r.eni) > 0 && parseFloat(r.boy) > 0);
+    if (validRows.length === 0) {
+      showToast('Avval kesish o\'lchamlarini kiriting!', '⚠️');
+      return;
+    }
     if (state.lastCuttingResult) {
       try {
+        const tanlanganBrend = state.brendlar.find(b => b.id === (state.cuttingSelectedBrendId || state.selectedBrendId)) || state.brendlar[0];
         const dummy = {
           id: 'RASKROY',
           sana: new Date().toLocaleTimeString('ru-RU'),
           mijozIsm: 'Kesish Sexi',
           rang: 'OQ',
-          detallar: generatsiyaDetallar(state.orderRows)
+          detallar: generatsiyaDetallar(validRows, tanlanganBrend)
         };
-        await buyurtmaniGuruhgaYubor(dummy, null, hisoblaBOM(dummy.detallar));
+        await buyurtmaniGuruhgaYubor(dummy, state.lastCuttingResult, hisoblaBOM(dummy.detallar));
         showToast('Sex guruhiga yuborildi!', '✈️');
       } catch (e) {
         alert(e.message);
@@ -1034,10 +1211,16 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   document.getElementById('btnCopyCuttingClipboard')?.addEventListener('click', () => {
+    const validRows = (state.cuttingRows || []).filter(r => parseFloat(r.eni) > 0 && parseFloat(r.boy) > 0);
+    if (validRows.length === 0) {
+      showToast('Avval kesish o\'lchamlarini kiriting!', '⚠️');
+      return;
+    }
     if (state.lastCuttingResult) {
+      const tanlanganBrend = state.brendlar.find(b => b.id === (state.cuttingSelectedBrendId || state.selectedBrendId)) || state.brendlar[0];
       const msg = generatsiyaIshchiXabari(
-        { id: 'KESISH', sana: new Date().toLocaleDateString(), rang: 'OQ', detallar: generatsiyaDetallar(state.orderRows) },
-        null,
+        { id: 'KESISH', sana: new Date().toLocaleDateString(), rang: 'OQ', detallar: generatsiyaDetallar(validRows, tanlanganBrend) },
+        state.lastCuttingResult,
         null
       );
       klipbordgaNusxala(msg);
@@ -1045,7 +1228,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 
-  document.getElementById('btnRecalculateCut')?.addEventListener('click', runCuttingLogic);
+  document.getElementById('btnRecalculateCut')?.addEventListener('click', () => runCuttingLogic(true));
   document.getElementById('btnPrintCuttingPdf')?.addEventListener('click', () => window.print());
 
   // Kassa modal va Telegram/CSV eksport
@@ -1305,7 +1488,11 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   // Dastlabki render
+  const headerKurs = document.getElementById('headerKursVal');
+  if (headerKurs) headerKurs.textContent = formatSom(state.kurs);
   renderOrderRows();
+  renderCuttingOrderRows();
+  runCuttingLogic(false);
   updateQuickCalc();
   updateCrmDatalist();
 });

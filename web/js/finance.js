@@ -121,7 +121,7 @@ export function qarzQosh(qarz, storageKey = 'prohisobchi_moliya') {
   };
   moliya.qarzDaftari.unshift(yangiQ);
   saqlaMoliya(moliya, storageKey);
-  return moliya;
+  return yangiQ;
 }
 
 export function qarzYopish(qarzId, kassagaKiritish = true, storageKey = 'prohisobchi_moliya') {
