@@ -75,49 +75,11 @@ let state = {
   profillar: JSON.parse(localStorage.getItem(storagePrefix + 'profillar')) || DEFAULT_PROFILLAR,
   brendlar: getProfilBrendlari(),
   selectedBrendId: 'standart',
-  buyurtmalar: JSON.parse(localStorage.getItem(storagePrefix + 'buyurtmalar')) || [
-    {
-      id: 1048,
-      sana: 'Bugun 14:30',
-      mijozIsm: 'Alisher aka',
-      mijozTel: '+998 90 987 65 43',
-      rang: 'OQ',
-      brendId: 'akfa',
-      status: 'Tayyor',
-      jamiSoni: 3,
-      jamiM2: 3.84,
-      jamiUsd: 35.00,
-      jamiSom: 450000,
-      tolovHolati: 'To\'landi (Kassa)',
-      qatorlar: [
-        { id: 1, profilId: 1, eni: 60, boy: 140, soni: 2, tur: 'yonga' },
-        { id: 2, profilId: 1, eni: 80, boy: 210, soni: 1, tur: 'eshik' }
-      ]
-    },
-    {
-      id: 1047,
-      sana: 'Kecha 17:15',
-      mijozIsm: 'Rustam aka',
-      mijozTel: '+998 93 111 22 33',
-      rang: 'MOKKO',
-      brendId: 'ekapen',
-      status: 'Jarayonda',
-      jamiSoni: 2,
-      jamiM2: 2.10,
-      jamiUsd: 17.00,
-      jamiSom: 220000,
-      tolovHolati: 'Nasiya (Qarz)',
-      qatorlar: [
-        { id: 1, profilId: 1, eni: 55, boy: 135, soni: 2, tur: 'yonga' }
-      ]
-    }
-  ],
+  buyurtmalar: JSON.parse(localStorage.getItem(storagePrefix + 'buyurtmalar')) || [],
   orderRows: [
-    { id: 1, profilId: 1, eni: '51.5', boy: '153.0', soni: 1, tur: 'yonga' }
+    { id: 1, profilId: 1, eni: '', boy: '', soni: 1, tur: 'yonga' }
   ],
-  cuttingRows: [
-    { id: 1, profilId: 1, eni: '60', boy: '140', soni: 2, tur: 'yonga' }
-  ],
+  cuttingRows: [],
   cuttingSelectedBrendId: 'standart',
   orderNarxTuri: 'chakana',
   orderTolovTuri: 'Naqd',
@@ -125,8 +87,8 @@ let state = {
   qc: {
     profilTur: 'kichik',
     narxTuri: 'chakana',
-    eni: 60,
-    boy: 140,
+    eni: '',
+    boy: '',
     soni: 1
   },
   lastCuttingResult: null,
@@ -293,11 +255,11 @@ function renderOrderRows() {
       <div class="order-row-nums">
         <div>
           <label style="font-size:9px;font-weight:700;color:var(--text-muted);display:block;text-align:center;">ENI (sm)</label>
-          <input type="number" step="0.1" class="inp-eni" data-id="${row.id}" value="${row.eni}" placeholder="51.5">
+          <input type="number" step="0.1" class="inp-eni" data-id="${row.id}" value="${row.eni}" placeholder="0">
         </div>
         <div>
           <label style="font-size:9px;font-weight:700;color:var(--text-muted);display:block;text-align:center;">BO'YI (sm)</label>
-          <input type="number" step="0.1" class="inp-boy" data-id="${row.id}" value="${row.boy}" placeholder="153.0">
+          <input type="number" step="0.1" class="inp-boy" data-id="${row.id}" value="${row.boy}" placeholder="0">
         </div>
         <div>
           <label style="font-size:9px;font-weight:700;color:var(--text-muted);display:block;text-align:center;">SONI</label>
@@ -641,11 +603,11 @@ function renderCuttingOrderRows() {
       <div class="order-row-nums">
         <div>
           <label style="font-size:9px;font-weight:700;color:var(--text-muted);display:block;text-align:center;">ENI (sm)</label>
-          <input type="number" step="0.1" class="inp-cut-eni" data-id="${row.id}" value="${row.eni}" placeholder="60">
+          <input type="number" step="0.1" class="inp-cut-eni" data-id="${row.id}" value="${row.eni}" placeholder="0">
         </div>
         <div>
           <label style="font-size:9px;font-weight:700;color:var(--text-muted);display:block;text-align:center;">BO'YI (sm)</label>
-          <input type="number" step="0.1" class="inp-cut-boy" data-id="${row.id}" value="${row.boy}" placeholder="140">
+          <input type="number" step="0.1" class="inp-cut-boy" data-id="${row.id}" value="${row.boy}" placeholder="0">
         </div>
         <div>
           <label style="font-size:9px;font-weight:700;color:var(--text-muted);display:block;text-align:center;">SONI</label>
@@ -1072,6 +1034,14 @@ document.addEventListener('DOMContentLoaded', () => {
   // Theme toggle
   document.getElementById('themeToggleBtn')?.addEventListener('click', toggleTheme);
 
+  function updateKursDisplay() {
+    const formatted = formatSom(state.kurs);
+    const headerEl = document.getElementById('headerKursVal');
+    if (headerEl) headerEl.textContent = formatted;
+    const bannerEl = document.getElementById('homeKursBannerText');
+    if (bannerEl) bannerEl.textContent = `💱 Valyuta kursi: 1 USD = ${formatted} UZS`;
+  }
+
   // Kurs yangilash
   document.getElementById('btnUpdateKursHome')?.addEventListener('click', async () => {
     try {
@@ -1080,7 +1050,7 @@ document.addEventListener('DOMContentLoaded', () => {
       if (data?.rates?.UZS) {
         state.kurs = Math.round(data.rates.UZS);
         localStorage.setItem('prohisobchi_kurs', state.kurs);
-        document.getElementById('headerKursVal').textContent = formatSom(state.kurs);
+        updateKursDisplay();
         updateOrderSummary();
         showToast(`Kurs yangilandi: 1$ = ${formatSom(state.kurs)} so'm`, '💱');
       }
@@ -1195,14 +1165,14 @@ document.addEventListener('DOMContentLoaded', () => {
     if (state.lastCuttingResult) {
       try {
         const tanlanganBrend = state.brendlar.find(b => b.id === (state.cuttingSelectedBrendId || state.selectedBrendId)) || state.brendlar[0];
-        const dummy = {
+        const sexBuyurtma = {
           id: 'RASKROY',
           sana: new Date().toLocaleTimeString('ru-RU'),
           mijozIsm: 'Kesish Sexi',
           rang: 'OQ',
           detallar: generatsiyaDetallar(validRows, tanlanganBrend)
         };
-        await buyurtmaniGuruhgaYubor(dummy, state.lastCuttingResult, hisoblaBOM(dummy.detallar));
+        await buyurtmaniGuruhgaYubor(sexBuyurtma, state.lastCuttingResult, hisoblaBOM(sexBuyurtma.detallar));
         showToast('Sex guruhiga yuborildi!', '✈️');
       } catch (e) {
         alert(e.message);
@@ -1487,9 +1457,26 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 
+  // Barcha ma'lumotlarni 0 qilish / Tozalash
+  document.getElementById('btnResetAllData')?.addEventListener('click', () => {
+    if (confirm('Diqqat! Barcha buyurtmalar, kassa amallari, qarzlar va ombor qoldiqlari o\'chiriladi va tizim 0 dan boshlanadi. Davom etasizmi?')) {
+      localStorage.removeItem(storagePrefix + 'buyurtmalar');
+      localStorage.removeItem('prohisobchi_moliya');
+      localStorage.removeItem('prohisobchi_ombor');
+      state.buyurtmalar = [];
+      state.orderRows = [{ id: 1, profilId: 1, eni: '', boy: '', soni: 1, tur: 'yonga' }];
+      state.cuttingRows = [];
+      saqlaMoliya(DEFAULT_MOLIYA);
+      saqlaOmbor(DEFAULT_OMBOR);
+      showToast('Barcha ma\'lumotlar tozalandi! Tizim 0 da.', '🗑️');
+      setTimeout(() => {
+        window.location.reload();
+      }, 700);
+    }
+  });
+
   // Dastlabki render
-  const headerKurs = document.getElementById('headerKursVal');
-  if (headerKurs) headerKurs.textContent = formatSom(state.kurs);
+  updateKursDisplay();
   renderOrderRows();
   renderCuttingOrderRows();
   runCuttingLogic(false);

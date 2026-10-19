@@ -8,25 +8,21 @@ import { hisoblaM2 } from './calculator.js';
 // Default ombor xomashyo qoldiqlari
 export const DEFAULT_OMBOR = {
   profillar: [
-    { id: 'p1', nom: 'Kichik ramka profil (Rom)', birlik: 'metr', miqdor: 120, minLimit: 30 },
-    { id: 'p2', nom: 'Katta ramka profil (Eshik)', birlik: 'metr', miqdor: 80, minLimit: 25 },
-    { id: 'p3', nom: 'Rom ruchka profil', birlik: 'metr', miqdor: 60, minLimit: 20 },
-    { id: 'p4', nom: 'Katta ruchka profil', birlik: 'metr', miqdor: 45, minLimit: 15 },
-    { id: 'p5', nom: 'Haytek profil', birlik: 'metr', miqdor: 50, minLimit: 15 }
+    { id: 'p1', nom: 'Kichik ramka profil (Rom)', birlik: 'metr', miqdor: 0, minLimit: 30 },
+    { id: 'p2', nom: 'Katta ramka profil (Eshik)', birlik: 'metr', miqdor: 0, minLimit: 25 },
+    { id: 'p3', nom: 'Rom ruchka profil', birlik: 'metr', miqdor: 0, minLimit: 20 },
+    { id: 'p4', nom: 'Katta ruchka profil', birlik: 'metr', miqdor: 0, minLimit: 15 },
+    { id: 'p5', nom: 'Haytek profil', birlik: 'metr', miqdor: 0, minLimit: 15 }
   ],
   materiallar: [
-    { id: 'm1', nom: 'To\'r matosi (Setka)', birlik: 'm²', miqdor: 85, minLimit: 20 },
-    { id: 'm2', nom: 'Rezina shnur (ip)', birlik: 'metr', miqdor: 350, minLimit: 50 },
-    { id: 'm3', nom: 'Ugolnik (plastik burchak)', birlik: 'dona', miqdor: 400, minLimit: 100 },
-    { id: 'm4', nom: 'Tutqichlar (ruchka komplekt)', birlik: 'dona', miqdor: 65, minLimit: 20 },
-    { id: 'm5', nom: 'Mahkamlagich (petlya & zamok)', birlik: 'dona', miqdor: 50, minLimit: 15 }
+    { id: 'm1', nom: 'To\'r matosi (Setka)', birlik: 'm²', miqdor: 0, minLimit: 20 },
+    { id: 'm2', nom: 'Rezina shnur (ip)', birlik: 'metr', miqdor: 0, minLimit: 50 },
+    { id: 'm3', nom: 'Ugolnik (plastik burchak)', birlik: 'dona', miqdor: 0, minLimit: 100 },
+    { id: 'm4', nom: 'Tutqichlar (ruchka komplekt)', birlik: 'dona', miqdor: 0, minLimit: 20 },
+    { id: 'm5', nom: 'Mahkamlagich (petlya & zamok)', birlik: 'dona', miqdor: 0, minLimit: 15 }
   ],
   // 100 sm dan uzun profil bo'laklari ombori
-  yaroqliQoldiqlar: [
-    { id: 'q1', profilId: 'p1', profilNom: 'Kichik rom', uzunlik: 245, soni: 2, sana: '2026-10-18' },
-    { id: 'q2', profilId: 'p2', profilNom: 'Katta eshik', uzunlik: 180, soni: 1, sana: '2026-10-18' },
-    { id: 'q3', profilId: 'p1', profilNom: 'Kichik rom', uzunlik: 135, soni: 3, sana: '2026-10-19' }
-  ]
+  yaroqliQoldiqlar: []
 };
 
 /**

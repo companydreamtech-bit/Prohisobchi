@@ -6,15 +6,8 @@
 import { formatSom } from './calculator.js';
 
 export const DEFAULT_MOLIYA = {
-  kassaTranzaksiyalar: [
-    { id: 't1', tur: 'kirim', summaSom: 1250000, summaUsd: 96.89, izoh: 'Buyurtma oldindan to\'lov (Anvar aka)', sana: '2026-10-18 14:30', toifa: 'buyurtma' },
-    { id: 't2', tur: 'chiqim', summaSom: 450000, summaUsd: 34.88, izoh: 'Rezina shnur va ugolnik xaridi', sana: '2026-10-18 16:15', toifa: 'xomashyo' },
-    { id: 't3', tur: 'kirim', summaSom: 800000, summaUsd: 62.01, izoh: 'Buyurtma to\'liq to\'lovi', sana: '2026-10-19 11:00', toifa: 'buyurtma' }
-  ],
-  qarzDaftari: [
-    { id: 'q1', tur: 'haqqim', shaxs: 'Rustam aka', telefon: '998901234567', summaSom: 650000, summaUsd: 50.38, izoh: 'Rom setkalari buyurtmasidan qoldiq', sana: '2026-10-17', status: 'ochiq' },
-    { id: 'q2', tur: 'qarzim', shaxs: 'Aluminiy baza (Dilshod)', telefon: '998939876543', summaSom: 1800000, summaUsd: 139.53, izoh: '600sm profil xaridi uchun nasiya', sana: '2026-10-15', status: 'ochiq' }
-  ]
+  kassaTranzaksiyalar: [],
+  qarzDaftari: []
 };
 
 export function getMoliya(storageKey = 'prohisobchi_moliya') {

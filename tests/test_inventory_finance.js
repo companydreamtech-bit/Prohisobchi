@@ -64,12 +64,11 @@ describe('2. Moliya: Kassa va Qarz Daftari Testlari', () => {
     saqlaMoliya(JSON.parse(JSON.stringify(DEFAULT_MOLIYA)), testKey);
   });
 
-  it('Boshlang\'ich kassa balansi to\'g\'ri hisoblanishi kerak', () => {
+  it('Boshlang\'ich kassa balansi 0 bo\'lishi kerak', () => {
     const bal = hisoblaKassaBalansi(testKey);
-    // DEFAULT_MOLIYA: kirimlar 1250000 + 800000 = 2050000, chiqim 450000
-    assert.equal(bal.jamiKirimSom, 2050000);
-    assert.equal(bal.jamiChiqimSom, 450000);
-    assert.equal(bal.sofBalansSom, 1600000);
+    assert.equal(bal.jamiKirimSom, 0);
+    assert.equal(bal.jamiChiqimSom, 0);
+    assert.equal(bal.sofBalansSom, 0);
   });
 
   it('Yangi tranzaksiya qo\'shilganda kassa balansi oshishi/kamayishi kerak', () => {
@@ -81,8 +80,8 @@ describe('2. Moliya: Kassa va Qarz Daftari Testlari', () => {
     }, testKey);
 
     const bal1 = hisoblaKassaBalansi(testKey);
-    assert.equal(bal1.jamiKirimSom, 2550000);
-    assert.equal(bal1.sofBalansSom, 2100000);
+    assert.equal(bal1.jamiKirimSom, 500000);
+    assert.equal(bal1.sofBalansSom, 500000);
 
     tranzaksiyaQosh({
       tur: 'chiqim',
@@ -92,15 +91,14 @@ describe('2. Moliya: Kassa va Qarz Daftari Testlari', () => {
     }, testKey);
 
     const bal2 = hisoblaKassaBalansi(testKey);
-    assert.equal(bal2.jamiChiqimSom, 550000);
-    assert.equal(bal2.sofBalansSom, 2000000);
+    assert.equal(bal2.jamiChiqimSom, 100000);
+    assert.equal(bal2.sofBalansSom, 400000);
   });
 
-  it('Qarz daftari statistikasi to\'g\'ri hisoblanishi kerak', () => {
+  it('Boshlang\'ich qarz daftari statistikasi 0 bo\'lishi kerak', () => {
     const stat = hisoblaQarzlarStatistikasi(testKey);
-    // DEFAULT_MOLIYA: haqqim = 650000, qarzim = 1800000
-    assert.equal(stat.jamiHaqqimSom, 650000);
-    assert.equal(stat.jamiQarzimSom, 1800000);
+    assert.equal(stat.jamiHaqqimSom, 0);
+    assert.equal(stat.jamiQarzimSom, 0);
   });
 
   it('Qarz qo\'shish va qarzni yopish (status: yopildi) to\'g\'ri ishlashi kerak', () => {
@@ -114,12 +112,14 @@ describe('2. Moliya: Kassa va Qarz Daftari Testlari', () => {
     }, testKey);
 
     let stat = hisoblaQarzlarStatistikasi(testKey);
-    assert.equal(stat.jamiHaqqimSom, 950000);
+    assert.equal(stat.jamiHaqqimSom, 300000);
 
     // Qarzni yopamiz (kassaga kiritish bilan)
     qarzYopish(yangiQarz.id, true, testKey);
     stat = hisoblaQarzlarStatistikasi(testKey);
-    assert.equal(stat.jamiHaqqimSom, 650000); // 300000 yopildi
+    assert.equal(stat.jamiHaqqimSom, 0); // 300000 yopildi
+    const bal = hisoblaKassaBalansi(testKey);
+    assert.equal(bal.jamiKirimSom, 300000);
   });
 
   it('generatsiyaKassaTelegramHisoboti to\'liq HTML hisobot matnini tuzishi kerak', () => {

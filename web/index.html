@@ -126,7 +126,7 @@
 
       <!-- Valyuta kursi banneri -->
       <div class="kurs-banner-card">
-        <span>💱 Valyuta kursi: 1 USD = 12 900 UZS</span>
+        <span id="homeKursBannerText">💱 Valyuta kursi: 1 USD = 12 900 UZS</span>
         <button class="ui-badge-link" id="btnUpdateKursHome" style="border:none;background:transparent;">Yangilash 🔄</button>
       </div>
     </section>
@@ -447,11 +447,11 @@
         <div class="dimensions-pair-grid">
           <div class="dim-input-box">
             <label>ENI (sm)</label>
-            <input type="number" id="qcInputEni" value="60">
+            <input type="number" id="qcInputEni" placeholder="0">
           </div>
           <div class="dim-input-box">
             <label>BO'YI (sm)</label>
-            <input type="number" id="qcInputBoy" value="140">
+            <input type="number" id="qcInputBoy" placeholder="0">
           </div>
         </div>
 
@@ -468,17 +468,17 @@
           <div class="quick-calc-metrics">
             <div>
               <div class="metric-item-lbl">Umumiy kvadratura:</div>
-              <div class="metric-item-val" id="qcResultM2">0.84 m²</div>
+              <div class="metric-item-val" id="qcResultM2">0.00 m²</div>
             </div>
             <div style="text-align:right;">
               <div class="metric-item-lbl">Jami narx ($):</div>
-              <div class="metric-item-val" id="qcResultUsd">19.32 $</div>
+              <div class="metric-item-val" id="qcResultUsd">0.00 $</div>
             </div>
           </div>
           <div class="quick-calc-divider"></div>
           <div style="display:flex;justify-content:space-between;align-items:center;">
             <span style="font-size:12px;opacity:0.8;">So'mda:</span>
-            <span style="font-size:17px;font-weight:800;font-family:var(--font-mono);color:#FFFFFF;" id="qcResultSom">249 200 so'm</span>
+            <span style="font-size:17px;font-weight:800;font-family:var(--font-mono);color:#FFFFFF;" id="qcResultSom">0 so'm</span>
           </div>
         </div>
 
@@ -568,6 +568,19 @@
           <button class="btn-outline-pill" id="btnImportJsonFile" style="text-align:center;">📤 JSON Tiklash</button>
         </div>
         <input type="file" id="backupFileInput" accept=".json" style="display:none;">
+      </div>
+
+      <!-- Barcha ma'lumotlarni tozalash (0 dan boshlash) -->
+      <div class="ui-card" style="border: 1px solid #FCA5A5; background: #FFF5F5;">
+        <div class="ui-card-header">
+          <span class="ui-card-title" style="color: #DC2626;">🗑️ Tizimni 0 dan boshlash</span>
+        </div>
+        <p style="font-size:12px; color:var(--text-secondary); margin-bottom:10px;">
+          Barcha buyurtmalar, kassa amallari, qarz daftari va ombor qoldiqlarini tozalab, tizimni to'liq 0 dan boshlash.
+        </p>
+        <button class="btn-outline-pill" id="btnResetAllData" style="width:100%; text-align:center; color:#DC2626; border-color:#DC2626; background:#FFFFFF;">
+          ⚠️ Barcha ma'lumotlarni 0 qilish
+        </button>
       </div>
     </section>
 
