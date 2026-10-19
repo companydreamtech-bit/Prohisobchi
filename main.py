@@ -4,12 +4,12 @@ import os
 import sys
 from aiohttp import web
 
-# Loyiha yo'llarini qo'shish
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "bot"))
+# Loyiha ildiz jildini sys.path ga qo'shish
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+if BASE_DIR not in sys.path:
+    sys.path.insert(0, BASE_DIR)
 
-from bot import config
-from bot.bot import bot, dp
+from bot import bot, dp, config
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 logger = logging.getLogger("pro_hisobchi")

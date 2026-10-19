@@ -14,7 +14,10 @@ from aiogram.types import (
 import os
 from aiogram.enums import ParseMode
 
-import config
+try:
+    from . import config
+except (ImportError, ValueError):
+    import config
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
