@@ -52,8 +52,8 @@ async def create_web_application():
     return app
 
 async def main():
-    # Railway PORT muhit parametrini oladi (standart 8000)
-    port = int(os.environ.get("PORT", 8000))
+    # Railway PORT muhit parametrini oladi (standart 8080)
+    port = int(os.environ.get("PORT", 8080))
     host = "0.0.0.0"
 
     logger.info("=" * 50)
