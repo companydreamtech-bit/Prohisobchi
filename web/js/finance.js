@@ -4,6 +4,7 @@
  */
 
 import { formatSom } from './calculator.js';
+import { telegramgaFaylYubor } from './telegram.js';
 
 export const DEFAULT_MOLIYA = {
   kassaTranzaksiyalar: [],
@@ -85,8 +86,9 @@ export function hisoblaQarzlarStatistikasi(storageKey = 'prohisobchi_moliya') {
 
 export function tranzaksiyaQosh(tranzaksiya, storageKey = 'prohisobchi_moliya') {
   const moliya = getMoliya(storageKey);
+  const rand = Math.random().toString(36).slice(2, 6);
   const yangiT = {
-    id: `t_${Date.now()}`,
+    id: `t_${Date.now()}_${rand}`,
     tur: tranzaksiya.tur || 'kirim',
     summaSom: parseFloat(tranzaksiya.summaSom) || 0,
     summaUsd: parseFloat(tranzaksiya.summaUsd) || 0,
@@ -101,8 +103,9 @@ export function tranzaksiyaQosh(tranzaksiya, storageKey = 'prohisobchi_moliya') 
 
 export function qarzQosh(qarz, storageKey = 'prohisobchi_moliya') {
   const moliya = getMoliya(storageKey);
+  const rand = Math.random().toString(36).slice(2, 6);
   const yangiQ = {
-    id: `q_${Date.now()}`,
+    id: `q_${Date.now()}_${rand}`,
     tur: qarz.tur || 'haqqim',
     shaxs: qarz.shaxs || 'Mijoz',
     telefon: qarz.telefon || '',
@@ -189,7 +192,7 @@ export function generatsiyaKassaTelegramHisoboti(storageKey = 'prohisobchi_moliy
 /**
  * CSV Eksport funksiyasi (Excel uchun mos UTF-8 BOM bilan)
  */
-export function eksportCSV(faylNomi, sarlavhalar, qatorlar) {
+export async function eksportCSV(faylNomi, sarlavhalar, qatorlar, caption = '') {
   // UTF-8 BOM qo'shamiz (Excel rus/o'zbek harflarini to'g'ri ko'rsatishi uchun)
   let csvContent = '\uFEFF';
   csvContent += sarlavhalar.map(s => `"${s}"`).join(',') + '\r\n';
@@ -198,21 +201,45 @@ export function eksportCSV(faylNomi, sarlavhalar, qatorlar) {
     csvContent += row.map(val => `"${(val ?? '').toString().replace(/"/g, '""')}"`).join(',') + '\r\n';
   });
 
-  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = faylNomi;
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  URL.revokeObjectURL(url);
+  let sentToTelegram = false;
+
+  if (typeof Blob !== 'undefined') {
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+
+    // 1. Standart brauzer yuklab olish (PC yoki tashqi brauzerda ishlashi uchun)
+    if (typeof document !== 'undefined') {
+      try {
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = faylNomi;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        setTimeout(() => URL.revokeObjectURL(url), 1000);
+      } catch (e) {
+        console.warn('Brauzer orqali yuklab olish ishlamadi:', e);
+      }
+    }
+
+    // 2. Telegram WebApp ichida bo'lsa, Telegram bot orqali chatga to'g'ridan-to'g'ri yuboramiz
+    if (typeof window !== 'undefined' && window.Telegram?.WebApp) {
+      try {
+        await telegramgaFaylYubor(faylNomi, blob, null, caption || `📊 ${faylNomi}`);
+        sentToTelegram = true;
+      } catch (err) {
+        console.warn('Telegramga fayl yuborishda xatolik:', err);
+      }
+    }
+  }
+
+  return { sentToTelegram };
 }
 
 /**
  * Kassa tranzaksiyalarini Excel (CSV) qilib yuklab olish
  */
-export function eksportKassaCSV(storageKey = 'prohisobchi_moliya') {
+export async function eksportKassaCSV(storageKey = 'prohisobchi_moliya') {
   const moliya = getMoliya(storageKey);
   const sarlavhalar = ['ID', 'Sana', 'Turi', 'Summa (so\'m)', 'Summa ($)', 'Izoh', 'Toifa'];
   const qatorlar = moliya.kassaTranzaksiyalar.map(t => [
@@ -226,13 +253,13 @@ export function eksportKassaCSV(storageKey = 'prohisobchi_moliya') {
   ]);
 
   const sana = new Date().toISOString().split('T')[0];
-  eksportCSV(`kassa_hisoboti_${sana}.csv`, sarlavhalar, qatorlar);
+  return await eksportCSV(`kassa_hisoboti_${sana}.csv`, sarlavhalar, qatorlar, '💵 Kassa hisoboti (Excel/CSV)');
 }
 
 /**
  * Qarz daftarini Excel (CSV) qilib yuklab olish
  */
-export function eksportQarzCSV(storageKey = 'prohisobchi_moliya') {
+export async function eksportQarzCSV(storageKey = 'prohisobchi_moliya') {
   const moliya = getMoliya(storageKey);
   const sarlavhalar = ['ID', 'Sana', 'Toifa', 'Shaxs / Ta\'minotchi', 'Telefon', 'Summa (so\'m)', 'Summa ($)', 'Izoh', 'Status'];
   const qatorlar = moliya.qarzDaftari.map(q => [
@@ -248,5 +275,6 @@ export function eksportQarzCSV(storageKey = 'prohisobchi_moliya') {
   ]);
 
   const sana = new Date().toISOString().split('T')[0];
-  eksportCSV(`qarz_daftari_${sana}.csv`, sarlavhalar, qatorlar);
+  return await eksportCSV(`qarz_daftari_${sana}.csv`, sarlavhalar, qatorlar, '📒 Qarz daftari hisoboti (Excel/CSV)');
 }
+

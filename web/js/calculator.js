@@ -311,13 +311,18 @@ export function generatsiyaDetallar(olchamlar, brendDopusk = {}) {
       turNom: turConfig.nom,
       hasRuchka: turConfig.hasRuchka,
       ramkaBoy: parseFloat(hisob.ramkaBoy.toFixed(1)),
+      rBoy: parseFloat(hisob.ramkaBoy.toFixed(1)),
       ramkaEn: parseFloat(hisob.ramkaEn.toFixed(1)),
+      rEn: parseFloat(hisob.ramkaEn.toFixed(1)),
       aProfilEn: hisob.aProfilEn ? parseFloat(hisob.aProfilEn.toFixed(1)) : null,
       hasAProfil: !!hisob.hasAProfil,
       ruchka: parseFloat(hisob.ruchka.toFixed(1)),
       setkaBoy: parseFloat(hisob.setkaBoy.toFixed(1)),
+      setkaUz: parseFloat(hisob.setkaBoy.toFixed(1)),
       setkaEnDona: parseFloat(hisob.setkaEnDona.toFixed(1)),
+      setkaDona: parseFloat(hisob.setkaEnDona.toFixed(1)),
       ip: parseFloat(hisob.ip.toFixed(1)),
+      ipOlch: parseFloat(hisob.ip.toFixed(1)),
       profilTuri: hisob.profilTuri,
       ruchkaTuri: hisob.ruchkaTuri
     });
@@ -351,76 +356,96 @@ export function saqlaTannarxStavkalari(stavkalar) {
 }
 
 export function hisoblaSebestoimost(guruhRejalar, detallar, stavkalar = DEFAULT_TANNARX_STAVKALARI) {
+  const safeStavkalar = {
+    katta: (stavkalar && !isNaN(parseFloat(stavkalar.katta))) ? parseFloat(stavkalar.katta) : DEFAULT_TANNARX_STAVKALARI.katta,
+    kattaRuchka: (stavkalar && !isNaN(parseFloat(stavkalar.kattaRuchka))) ? parseFloat(stavkalar.kattaRuchka) : DEFAULT_TANNARX_STAVKALARI.kattaRuchka,
+    kichkina: (stavkalar && !isNaN(parseFloat(stavkalar.kichkina))) ? parseFloat(stavkalar.kichkina) : DEFAULT_TANNARX_STAVKALARI.kichkina,
+    romRuchka: (stavkalar && !isNaN(parseFloat(stavkalar.romRuchka))) ? parseFloat(stavkalar.romRuchka) : DEFAULT_TANNARX_STAVKALARI.romRuchka,
+    haytek: (stavkalar && !isNaN(parseFloat(stavkalar.haytek))) ? parseFloat(stavkalar.haytek) : DEFAULT_TANNARX_STAVKALARI.haytek,
+    setka: (stavkalar && !isNaN(parseFloat(stavkalar.setka))) ? parseFloat(stavkalar.setka) : DEFAULT_TANNARX_STAVKALARI.setka,
+    aksessuar: (stavkalar && !isNaN(parseFloat(stavkalar.aksessuar))) ? parseFloat(stavkalar.aksessuar) : DEFAULT_TANNARX_STAVKALARI.aksessuar
+  };
+
   function hisoblaRejaNarxi(rejaTayoqlar, narxPerMetr, qoldiqChegara = null) {
     let jami = 0;
+    const rate = parseFloat(narxPerMetr) || 0;
     (rejaTayoqlar || []).forEach(r => {
       (r.kesimlar || []).forEach(sm => {
-        jami += (sm / 100) * narxPerMetr;
+        const smVal = parseFloat(sm) || 0;
+        jami += (smVal / 100) * rate;
       });
-      if (qoldiqChegara && r.aniqQoldiq > 0 && r.aniqQoldiq < qoldiqChegara) {
-        jami += (r.aniqQoldiq / 100) * narxPerMetr;
+      const qVal = parseFloat(r.aniqQoldiq) || 0;
+      if (qoldiqChegara && qVal > 0 && qVal < qoldiqChegara) {
+        jami += (qVal / 100) * rate;
       }
     });
-    return jami;
+    return isNaN(jami) ? 0 : jami;
   }
 
   let setkaUsd = 0;
   let aksessuarSoni = 0;
-  detallar.forEach(d => {
-    const s = d.soni;
+  (detallar || []).forEach(d => {
+    const s = parseInt(d.soni) || 1;
     aksessuarSoni += s;
+    const sUz = parseFloat(d.setkaUz || d.setkaBoy) || 0;
+    const sDona = parseFloat(d.setkaDona || d.setkaEnDona) || 0;
+
     if (d.tur === 'yonga') {
-      setkaUsd += d.setkaUz * d.setkaDona * s * stavkalar.setka;
+      setkaUsd += sUz * sDona * s * safeStavkalar.setka;
     } else if (d.tur === 'pastga') {
-      setkaUsd += d.setkaDona * d.setkaUz * s * stavkalar.setka;
+      setkaUsd += sDona * sUz * s * safeStavkalar.setka;
     } else if (d.tur !== 'haytek') {
-      setkaUsd += d.setkaUz * Math.ceil(d.setkaDona) * s * stavkalar.setka;
+      setkaUsd += sUz * Math.ceil(sDona) * s * safeStavkalar.setka;
     }
   });
 
-  const aksessuarUsd = aksessuarSoni * stavkalar.aksessuar;
+  const aksessuarUsd = aksessuarSoni * safeStavkalar.aksessuar;
 
   const qismlar = [];
   let profillarUsd = 0;
 
-  guruhRejalar.forEach(g => {
+  (guruhRejalar || []).forEach(g => {
     let stavka = 0;
     let qoldiqChegara = null;
 
     if (g.key === 'kichikRom') {
-      stavka = stavkalar.kichkina;
+      stavka = safeStavkalar.kichkina;
     } else if (g.key === 'romRuchka') {
-      stavka = stavkalar.romRuchka;
+      stavka = safeStavkalar.romRuchka;
     } else if (g.key === 'kattaEshik') {
-      stavka = stavkalar.katta;
+      stavka = safeStavkalar.katta;
       qoldiqChegara = 190;
     } else if (g.key === 'kattaRuchka') {
-      stavka = stavkalar.kattaRuchka;
+      stavka = safeStavkalar.kattaRuchka;
       qoldiqChegara = 190;
     } else if (g.key === 'haytek') {
-      stavka = stavkalar.haytek;
+      stavka = safeStavkalar.haytek;
     } else if (g.key === 'aProfil') {
-      stavka = stavkalar.katta;
+      stavka = safeStavkalar.katta;
       qoldiqChegara = 190;
     }
 
-    const narx = hisoblaRejaNarxi(g.natija.tayoqlar, stavka, qoldiqChegara);
+    const narx = hisoblaRejaNarxi(g.natija?.tayoqlar, stavka, qoldiqChegara);
     profillarUsd += narx;
     qismlar.push({
       nom: g.nom,
       stavka,
-      usd: parseFloat(narx.toFixed(2)),
-      tayoqSoni: g.natija.jamiTayoqSoni
+      usd: parseFloat((narx || 0).toFixed(2)),
+      tayoqSoni: g.natija?.jamiTayoqSoni || 0
     });
   });
 
-  const jamiUsd = parseFloat((profillarUsd + setkaUsd + aksessuarUsd).toFixed(2));
+  profillarUsd = isNaN(profillarUsd) ? 0 : profillarUsd;
+  setkaUsd = isNaN(setkaUsd) ? 0 : setkaUsd;
+  const safeAksessuarUsd = isNaN(aksessuarUsd) ? 0 : aksessuarUsd;
+
+  const jamiUsd = parseFloat((profillarUsd + setkaUsd + safeAksessuarUsd).toFixed(2));
 
   return {
     qismlar,
     profillarUsd: parseFloat(profillarUsd.toFixed(2)),
     setkaUsd: parseFloat(setkaUsd.toFixed(2)),
-    aksessuarUsd: parseFloat(aksessuarUsd.toFixed(2)),
-    jamiUsd
+    aksessuarUsd: parseFloat(safeAksessuarUsd.toFixed(2)),
+    jamiUsd: isNaN(jamiUsd) ? 0 : jamiUsd
   };
 }

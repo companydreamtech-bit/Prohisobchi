@@ -1021,7 +1021,7 @@ function runCuttingLogic(showToastMsg = false) {
         <div class="tannarx-divider"></div>
         <div style="display:flex; justify-content:space-between; align-items:center;">
           <span style="font-size:12px; opacity:0.85;">So'mda umumiy tannarx:</span>
-          <b style="font-size:15px; font-family:var(--font-mono); color:#34D399;">${formatSom(seb.jamiUsd * state.kurs)} so'm</b>
+          <b style="font-size:15px; font-family:var(--font-mono); color:#34D399;">${formatSom((seb.jamiUsd || 0) * (parseFloat(state.kurs) || 12800))} so'm</b>
         </div>
       </div>
     `;
@@ -1294,7 +1294,7 @@ function renderSozlamalarScreen() {
 }
 
 // Buyurtmalar tarixini Excel (CSV) eksport qilish
-function exportOrdersHistoryCsv() {
+async function exportOrdersHistoryCsv() {
   const sarlavhalar = ['ID', 'Sana', 'Mijoz Ismi', 'Telefon', 'Rangi', 'Brend', 'To\'r Soni', 'Kvadratura (m²)', 'Summa ($)', 'Summa (so\'m)', 'To\'lov Holati', 'Status'];
   const qatorlar = state.buyurtmalar.map(b => [
     b.id,
@@ -1312,8 +1312,15 @@ function exportOrdersHistoryCsv() {
   ]);
 
   const sana = new Date().toISOString().split('T')[0];
-  eksportCSV(`buyurtmalar_${sana}.csv`, sarlavhalar, qatorlar);
-  showToast('Buyurtmalar Excel (CSV) ga yuklandi!', '📊');
+  const res = await eksportCSV(`buyurtmalar_${sana}.csv`, sarlavhalar, qatorlar, '📦 Buyurtmalar tarixi hisoboti (Excel/CSV)');
+  if (res?.sentToTelegram) {
+    showToast('Excel fayl Telegramingizga yuborildi! 📥', '📊');
+    if (window.Telegram?.WebApp?.showAlert) {
+      window.Telegram.WebApp.showAlert('Excel (CSV) fayli Telegram botingizga yuborildi! 📥\nBot chatiga o\'tib, faylni bemalol ochishingiz mumkin.');
+    }
+  } else {
+    showToast('Buyurtmalar Excel (CSV) ga yuklandi!', '📊');
+  }
 }
 
 // ==========================================================================
@@ -1599,9 +1606,20 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 
-  document.getElementById('btnExportKassaCsv')?.addEventListener('click', () => {
-    eksportKassaCSV();
-    showToast('Kassa Excel (CSV) ga yuklandi!', '📊');
+  document.getElementById('btnExportKassaCsv')?.addEventListener('click', async () => {
+    try {
+      const res = await eksportKassaCSV();
+      if (res?.sentToTelegram) {
+        showToast('Kassa Excel fayli Telegramga yuborildi! 📥', '📊');
+        if (window.Telegram?.WebApp?.showAlert) {
+          window.Telegram.WebApp.showAlert('Kassa hisoboti (Excel/CSV) Telegram botingizga yuborildi! 📥\nIlovani yopib bot chatidan yuklab olishingiz mumkin.');
+        }
+      } else {
+        showToast('Kassa Excel (CSV) ga yuklandi!', '📊');
+      }
+    } catch (e) {
+      showToast('Xatolik: ' + e.message, '⚠️');
+    }
   });
 
   // Qarz modal va CSV eksport
@@ -1640,9 +1658,20 @@ document.addEventListener('DOMContentLoaded', () => {
     showToast('Qarz daftariga yozildi!', '📒');
   });
 
-  document.getElementById('btnExportQarzCsv')?.addEventListener('click', () => {
-    eksportQarzCSV();
-    showToast('Qarzlar Excel (CSV) ga yuklandi!', '📊');
+  document.getElementById('btnExportQarzCsv')?.addEventListener('click', async () => {
+    try {
+      const res = await eksportQarzCSV();
+      if (res?.sentToTelegram) {
+        showToast('Qarzlar Excel fayli Telegramga yuborildi! 📥', '📊');
+        if (window.Telegram?.WebApp?.showAlert) {
+          window.Telegram.WebApp.showAlert('Qarz daftari (Excel/CSV) Telegram botingizga yuborildi! 📥\nIlovani yopib bot chatidan yuklab olishingiz mumkin.');
+        }
+      } else {
+        showToast('Qarzlar Excel (CSV) ga yuklandi!', '📊');
+      }
+    } catch (e) {
+      showToast('Xatolik: ' + e.message, '⚠️');
+    }
   });
 
   // Buyurtma chek modal hodisalari

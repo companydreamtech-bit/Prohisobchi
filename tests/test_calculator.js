@@ -7,8 +7,11 @@ import {
   hisoblaM2,
   formatSom,
   hisoblaBuyurtmaNarxi,
-  generatsiyaDetallar
+  generatsiyaDetallar,
+  hisoblaSebestoimost,
+  DEFAULT_TANNARX_STAVKALARI
 } from '../web/js/calculator.js';
+import { hisoblaGuruhlanganRaskroy } from '../web/js/cutting.js';
 
 describe('1. Kvadratura va Formatlash Testlari', () => {
   it('hisoblaM2: 60 sm x 140 sm = 0.84 m² bo\'lishi kerak', () => {
@@ -152,3 +155,33 @@ describe('4. Detallar Generatsiyasi (generatsiyaDetallar) Testlari', () => {
     assert.equal(detallar[1].profilTuri, 'katta');
   });
 });
+
+describe('5. Tannarx (Sebestoimost) NaN Bo\'lmaslik va To\'liq Hisoblash Testlari', () => {
+  const brend = DEFAULT_PROFIL_BRENDLARI[0];
+
+  it('Barcha 7 xil turdagi to\'rlar uchun hisoblaSebestoimost NaN chiqmasligi va musbat raqam bo\'lishi kerak', () => {
+    const turlar = ['yonga', 'pastga', 'eshik', 'tayyor', 'evro', 'tayyor_evro', 'haytek'];
+    const olchamlar = turlar.map((tur, i) => ({
+      id: i + 1,
+      eni: 70,
+      boy: 150,
+      soni: 1,
+      tur
+    }));
+
+    const detallar = generatsiyaDetallar(olchamlar, brend);
+    const guruhlangan = hisoblaGuruhlanganRaskroy(detallar, 600, {}, 0.3);
+    const seb = hisoblaSebestoimost(guruhlangan.guruhNatijalar, detallar, DEFAULT_TANNARX_STAVKALARI);
+
+    assert.ok(!isNaN(seb.jamiUsd), 'jamiUsd NaN bo\'lmasligi kerak');
+    assert.ok(!isNaN(seb.setkaUsd), 'setkaUsd NaN bo\'lmasligi kerak');
+    assert.ok(!isNaN(seb.profillarUsd), 'profillarUsd NaN bo\'lmasligi kerak');
+    assert.ok(!isNaN(seb.aksessuarUsd), 'aksessuarUsd NaN bo\'lmasligi kerak');
+
+    assert.ok(seb.jamiUsd > 0, 'jamiUsd > 0 bo\'lishi kerak');
+    assert.ok(seb.setkaUsd > 0, 'setkaUsd > 0 bo\'lishi kerak');
+    assert.ok(seb.aksessuarUsd > 0, 'aksessuarUsd > 0 bo\'lishi kerak');
+    assert.ok(seb.profillarUsd > 0, 'profillarUsd > 0 bo\'lishi kerak');
+  });
+});
+

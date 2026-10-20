@@ -230,3 +230,46 @@ export async function buyurtmaniGuruhgaYubor(buyurtma, kesishNatijasi, bom, cust
 export async function kassaHisobotiniGuruhgaYubor(kassaMatni, customChatId = null) {
   return await telegramgaXabarYubor(kassaMatni, customChatId);
 }
+
+/**
+ * Telegram Bot API orqali fayl (CSV / Document) yuborish
+ */
+export async function telegramgaFaylYubor(faylNomi, blob, customChatId = null, caption = '') {
+  const cfg = getTelegramConfig();
+  const token = cfg.botToken || DEFAULT_TELEGRAM_CONFIG.botToken;
+  const tgUser = (typeof window !== 'undefined' && window.Telegram?.WebApp?.initDataUnsafe?.user) || null;
+  const chatId = customChatId || tgUser?.id || cfg.chatId || DEFAULT_TELEGRAM_CONFIG.chatId;
+
+  if (!token || !chatId) {
+    throw new Error('Telegram bot yoki Chat ID sozlanmagan!');
+  }
+
+  const formData = new FormData();
+  formData.append('chat_id', chatId);
+  formData.append('document', blob, faylNomi);
+  if (caption) formData.append('caption', caption);
+
+  try {
+    const response = await fetch(`https://api.telegram.org/bot${token}/sendDocument`, {
+      method: 'POST',
+      body: formData
+    });
+    const data = await response.json();
+    if (!data.ok && chatId !== cfg.chatId && cfg.chatId) {
+      // Agar shaxsiy chat ochilmagan bo'lsa, sex guruhiga yuborish
+      const fbData = new FormData();
+      fbData.append('chat_id', cfg.chatId);
+      fbData.append('document', blob, faylNomi);
+      if (caption) fbData.append('caption', caption);
+      const resFallback = await fetch(`https://api.telegram.org/bot${token}/sendDocument`, {
+        method: 'POST',
+        body: fbData
+      });
+      return await resFallback.json();
+    }
+    return data;
+  } catch (err) {
+    console.warn('telegramgaFaylYubor xatoligi:', err);
+    throw err;
+  }
+}
