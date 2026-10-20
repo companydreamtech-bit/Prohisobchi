@@ -182,6 +182,11 @@ async def main():
     # Telegram Bot Pollingni ishga tushirish
     logger.info("🤖 Telegram Bot Polling boshlanmoqda...")
     await bot.delete_webhook(drop_pending_updates=True)
+    try:
+        from bot.bot import set_bot_commands
+        await set_bot_commands()
+    except Exception as e:
+        logger.warning(f"Buyruqlarni o'rnatishda xatolik: {e}")
     
     try:
         await dp.start_polling(bot)

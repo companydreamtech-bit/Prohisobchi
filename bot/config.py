@@ -15,6 +15,9 @@ railway_domain = os.getenv("RAILWAY_PUBLIC_DOMAIN", "prohisobchi-production.up.r
 default_url = f"https://{railway_domain}"
 WEBAPP_URL = os.getenv("WEBAPP_URL", default_url)
 
-# Admin Telegram ID lari (vergul bilan ajratilgan)
-ADMIN_IDS = [int(x.strip()) for x in os.getenv("ADMIN_IDS", "").split(",") if x.strip().isdigit()]
+# Admin Telegram ID lari (standart fallback bilan)
+raw_admins = os.getenv("ADMIN_IDS", "8146600957,7465384745")
+ADMIN_IDS = [int(x.strip()) for x in raw_admins.split(",") if x.strip().isdigit()]
+if not ADMIN_IDS:
+    ADMIN_IDS = [8146600957, 7465384745]
 

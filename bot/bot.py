@@ -1,6 +1,8 @@
 import asyncio
 import logging
 import json
+import secrets
+from datetime import datetime
 from aiogram import Bot, Dispatcher, F, types
 from aiogram.filters import CommandStart, Command
 from aiogram.types import (
@@ -19,33 +21,50 @@ try:
 except (ImportError, ValueError):
     import config
 
+import database
+
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
 
 bot = Bot(token=config.BOT_TOKEN)
 dp = Dispatcher()
 
-def get_main_keyboard(webapp_url: str):
-    """Pastki doimiy WebApp menyusi"""
+def is_admin(user_id: int) -> bool:
+    """Foydalanuvchi admin ekanligini tekshirish"""
+    if not config.ADMIN_IDS:
+        return True
+    try:
+        return int(user_id) in config.ADMIN_IDS
+    except (ValueError, TypeError):
+        return False
+
+def get_main_keyboard(webapp_url: str, is_admin_user: bool = False):
+    """Pastki doimiy WebApp va Admin menyusi"""
+    buttons = [
+        [KeyboardButton(text="📱 Pro Hisobchi ilovasini ochish", web_app=WebAppInfo(url=webapp_url))]
+    ]
+    if is_admin_user:
+        buttons.append([KeyboardButton(text="👑 Admin Panel")])
     return ReplyKeyboardMarkup(
-        keyboard=[
-            [KeyboardButton(text="📱 Pro Hisobchi ilovasini ochish", web_app=WebAppInfo(url=webapp_url))]
-        ],
+        keyboard=buttons,
         resize_keyboard=True
     )
 
-def get_inline_keyboard(webapp_url: str):
-    """Inline WebApp tugmasi"""
-    return InlineKeyboardMarkup(
-        inline_keyboard=[
-            [InlineKeyboardButton(text="🚀 Ilovani ishga tushirish", web_app=WebAppInfo(url=webapp_url))],
-            [InlineKeyboardButton(text="ℹ️ Tizim haqida", callback_data="about_system")]
-        ]
-    )
+def get_inline_keyboard(webapp_url: str, is_admin_user: bool = False):
+    """Inline WebApp va Admin tugmalari"""
+    buttons = [
+        [InlineKeyboardButton(text="🚀 Ilovani ishga tushirish", web_app=WebAppInfo(url=webapp_url))]
+    ]
+    if is_admin_user:
+        buttons.append([InlineKeyboardButton(text="👑 Admin Paneli", callback_data="open_admin_panel")])
+    buttons.append([InlineKeyboardButton(text="ℹ️ Tizim haqida", callback_data="about_system")])
+    return InlineKeyboardMarkup(inline_keyboard=buttons)
 
 @dp.message(CommandStart())
 async def start_handler(message: types.Message):
     webapp_url = config.WEBAPP_URL
+    user_id = message.from_user.id if message.from_user else 0
+    admin_status = is_admin(user_id)
     user_name = message.from_user.first_name if message.from_user else "Hurmatli mijoz"
     
     welcome_text = (
@@ -59,33 +78,38 @@ async def start_handler(message: types.Message):
         f"• 📦 Xomashyo sarfi (BOM) va qoldiqlar ombori\n"
         f"• 💵 Kassa va Nasiya (qarz) daftari\n"
         f"• 👥 Ishchilar guruhi va mijozlar uchun avtomatik Telegram cheklari\n\n"
-        f"Ilovani ochish uchun quyidagi tugmani bosing 👇"
     )
+    if admin_status:
+        welcome_text += "👑 <b>Siz tizim administratorisiz.</b> Pastdagi <b>«Admin Panel»</b> orqali mijozlarni boshqarishingiz mumkin.\n\n"
+    welcome_text += "Ilovani ochish uchun quyidagi tugmani bosing 👇"
     
     logo_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "web", "img", "logo.png")
     
+    main_kb = get_main_keyboard(webapp_url, admin_status)
+    inline_kb = get_inline_keyboard(webapp_url, admin_status)
+
     if os.path.exists(logo_path):
         photo = FSInputFile(logo_path)
         await message.answer_photo(
             photo=photo,
             caption=welcome_text,
             parse_mode=ParseMode.HTML,
-            reply_markup=get_inline_keyboard(webapp_url)
+            reply_markup=inline_kb
         )
         await message.answer(
             text="Pastki menyudan ham ilovani istalgan vaqt ochishingiz mumkin 👇",
-            reply_markup=get_main_keyboard(webapp_url)
+            reply_markup=main_kb
         )
     else:
         await message.answer(
             text=welcome_text,
             parse_mode=ParseMode.HTML,
-            reply_markup=get_main_keyboard(webapp_url)
+            reply_markup=main_kb
         )
         await message.answer(
             text="👇 <b>Mini App oynasini to'liq hajmda ochish:</b>",
             parse_mode=ParseMode.HTML,
-            reply_markup=get_inline_keyboard(webapp_url)
+            reply_markup=inline_kb
         )
 
 @dp.callback_query(F.data == "about_system")
@@ -151,33 +175,36 @@ async def web_app_data_handler(message: types.Message):
 
 @dp.message(Command("help"))
 async def help_command(message: types.Message):
+    user_id = message.from_user.id if message.from_user else 0
     help_text = (
         "📖 <b>Yordam bo'limi:</b>\n\n"
         "• /start — Botni qayta ishga tushirish va menyuni ochish\n"
+        "• /license — Litsenziya holatini tekshirish\n"
+        "• /activate KALIT — Litsenziyani Telegram hisobiga ulash\n"
+        "• /id — Joriy chat yoki shaxsiy Telegram ID raqamini ko'rish\n"
         "• /help — Botdan foydalanish bo'yicha ko'rsatma\n"
-        "• /id — Joriy chat yoki guruhning ID raqamini aniqlash\n\n"
-        "Savollar yoki takliflar uchun tizim administratoriga murojaat qiling."
     )
+    if is_admin(user_id):
+        help_text += (
+            "\n👑 <b>Admin buyruqlari:</b>\n"
+            "• /admin — Boshqaruv paneli\n"
+            "• /clients — Barcha mijozlar ro'yxati\n"
+            "• /newclient Nomi Kunlar — Yangi mijoz ochish\n"
+            "• /extend KALIT Kunlar — Obunani uzaytirish\n"
+            "• /block KALIT — Bloklash\n"
+            "• /unblock KALIT — Blokdan chiqarish\n"
+        )
     await message.answer(help_text, parse_mode=ParseMode.HTML)
 
-import database
+# ==============================================================================
+# SAAS ADMIN BOSHQARUV PANELI VA TEZKOR TUGMALAR
+# ==============================================================================
 
-def is_admin(user_id: int) -> bool:
-    """Foydalanuvchi admin ekanligini tekshirish"""
-    if not config.ADMIN_IDS:
-        return True  # Agar ADMIN_IDS bo'sh bo'lsa, erkin boshqarishga ruxsat
-    return user_id in config.ADMIN_IDS
-
-@dp.message(Command("admin"))
-async def admin_panel_command(message: types.Message):
-    """SaaS Admin Boshqaruv Paneli"""
-    if not is_admin(message.from_user.id):
-        await message.answer("⛔ <b>Kechirasiz, bu bo'lim faqat tizim administratori uchun!</b>", parse_mode=ParseMode.HTML)
-        return
-
+def get_admin_panel_data():
     tenants = database.list_all_tenants()
     active_count = sum(1 for t in tenants if t["is_active"] and not t["is_expired"])
     expired_count = sum(1 for t in tenants if t["is_expired"])
+    blocked_count = sum(1 for t in tenants if not t["is_active"])
 
     kb = InlineKeyboardMarkup(
         inline_keyboard=[
@@ -186,7 +213,10 @@ async def admin_panel_command(message: types.Message):
                 InlineKeyboardButton(text="➕ 1 oylik mijoz", callback_data="admin_add_30"),
                 InlineKeyboardButton(text="➕ 1 yillik mijoz", callback_data="admin_add_365")
             ],
-            [InlineKeyboardButton(text="📊 Statistika", callback_data="admin_stats")]
+            [
+                InlineKeyboardButton(text="📊 Statistika", callback_data="admin_stats"),
+                InlineKeyboardButton(text="🔄 Yangilash", callback_data="open_admin_panel")
+            ]
         ]
     )
 
@@ -194,7 +224,8 @@ async def admin_panel_command(message: types.Message):
         "👑 <b>«PRO HISOBCHI» SAAS ADMIN PANELI</b>\n\n"
         f"📊 <b>Jami mijozlar:</b> {len(tenants)} ta\n"
         f"🟢 <b>Faol obunalar:</b> {active_count} ta\n"
-        f"🔴 <b>Muddati tugaganlar:</b> {expired_count} ta\n\n"
+        f"🔴 <b>Muddati tugaganlar:</b> {expired_count} ta\n"
+        f"🚫 <b>Bloklanganlar:</b> {blocked_count} ta\n\n"
         "<b>Tezkor buyruqlar:</b>\n"
         "• <code>/newclient Nomi Kunlar</code> — Yangi mijoz va parol ochish\n"
         "  <i>(Masalan: <code>/newclient Akfa_Chilonzor 30</code>)</i>\n"
@@ -203,7 +234,122 @@ async def admin_panel_command(message: types.Message):
         "• <code>/unblock KALIT</code> — Mijozni qayta faollashtirish\n"
         "• <code>/clients</code> — Barcha mijozlarni ko'rish"
     )
+    return admin_text, kb
+
+def get_clients_list_data():
+    tenants = database.list_all_tenants()
+    if not tenants:
+        msg = (
+            "ℹ️ <b>Hozircha tizimda mijozlar yo'q.</b>\n\n"
+            "Yangi mijoz qo'shish uchun: <code>/newclient Ustaxona_Nomi 30</code>\n"
+            "yoki quyidagi tugmani bosing 👇"
+        )
+        kb = InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(text="➕ 1 oylik mijoz ochish", callback_data="admin_add_30")],
+            [InlineKeyboardButton(text="🔙 Admin panelga qaytish", callback_data="open_admin_panel")]
+        ])
+        return msg, kb
+
+    lines = ["👥 <b>MIJOZLAR VA OBUNALAR RO'YXATI:</b>\n"]
+    for i, t in enumerate(tenants, 1):
+        status_icon = "🟢" if (t["is_active"] and not t["is_expired"]) else "🔴"
+        qolgan = f"{t['days_left']} kun qoldi" if not t["is_expired"] else "TUGAGAN"
+        lines.append(
+            f"{i}. {status_icon} <b>{t['name']}</b>\n"
+            f"   🔑 Kalit: <code>{t['license_key']}</code>\n"
+            f"   ⏳ Muddat: {qolgan} ({t['expires_at'].split()[0]})\n"
+        )
+
+    kb = InlineKeyboardMarkup(inline_keyboard=[
+        [
+            InlineKeyboardButton(text="➕ 1 oylik", callback_data="admin_add_30"),
+            InlineKeyboardButton(text="➕ 1 yillik", callback_data="admin_add_365")
+        ],
+        [InlineKeyboardButton(text="🔙 Admin panelga qaytish", callback_data="open_admin_panel")]
+    ])
+    return "\n".join(lines), kb
+
+@dp.message(Command("admin"))
+@dp.message(F.text == "👑 Admin Panel")
+async def admin_panel_command(message: types.Message):
+    """SaaS Admin Boshqaruv Paneli"""
+    if not is_admin(message.from_user.id):
+        await message.answer("⛔ <b>Kechirasiz, bu bo'lim faqat tizim administratori uchun!</b>", parse_mode=ParseMode.HTML)
+        return
+
+    admin_text, kb = get_admin_panel_data()
     await message.answer(admin_text, parse_mode=ParseMode.HTML, reply_markup=kb)
+
+@dp.callback_query(F.data == "open_admin_panel")
+async def cb_open_admin_panel(callback: types.CallbackQuery):
+    if not is_admin(callback.from_user.id):
+        await callback.answer("⛔ Faqat administrator uchun!", show_alert=True)
+        return
+    await callback.answer()
+    admin_text, kb = get_admin_panel_data()
+    try:
+        await callback.message.edit_text(admin_text, parse_mode=ParseMode.HTML, reply_markup=kb)
+    except Exception:
+        await callback.message.answer(admin_text, parse_mode=ParseMode.HTML, reply_markup=kb)
+
+@dp.callback_query(F.data == "admin_list_clients")
+async def cb_admin_clients(callback: types.CallbackQuery):
+    if not is_admin(callback.from_user.id):
+        await callback.answer("⛔ Faqat administrator uchun!", show_alert=True)
+        return
+    await callback.answer()
+    text, kb = get_clients_list_data()
+    await callback.message.answer(text, parse_mode=ParseMode.HTML, reply_markup=kb)
+
+@dp.callback_query(F.data.startswith("admin_add_"))
+async def cb_admin_quick_add(callback: types.CallbackQuery):
+    if not is_admin(callback.from_user.id):
+        await callback.answer("⛔ Faqat administrator uchun!", show_alert=True)
+        return
+    await callback.answer("Yaratilmoqda...")
+    days = 365 if "365" in callback.data else 30
+    tag = secrets.token_hex(2).upper()
+    tenant = database.create_tenant(name=f"Ustaxona_{tag}", duration_days=days)
+    
+    msg = (
+        f"🎉 <b>Yangi {days} kunlik mijoz litsenziyasi yaratildi!</b>\n\n"
+        f"🏢 Nomi: <b>{tenant['name']}</b>\n"
+        f"🔑 Litsenziya kodi: <code>{tenant['license_key']}</code>\n"
+        f"⏰ Tugash muddati: <b>{tenant['expires_at']}</b> ({days} kun)\n\n"
+        f"<i>Mijozga ushbu kalitni yuboring. U Web App'ga kirib kalitni kiritadi.</i>"
+    )
+    kb = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="👥 Mijozlar ro'yxati", callback_data="admin_list_clients")],
+        [InlineKeyboardButton(text="🔙 Admin panelga", callback_data="open_admin_panel")]
+    ])
+    await callback.message.answer(msg, parse_mode=ParseMode.HTML, reply_markup=kb)
+
+@dp.callback_query(F.data == "admin_stats")
+async def cb_admin_stats(callback: types.CallbackQuery):
+    if not is_admin(callback.from_user.id):
+        await callback.answer("⛔ Faqat administrator uchun!", show_alert=True)
+        return
+    await callback.answer()
+    tenants = database.list_all_tenants()
+    total = len(tenants)
+    active = sum(1 for t in tenants if t["is_active"] and not t["is_expired"])
+    expired = sum(1 for t in tenants if t["is_expired"])
+    blocked = sum(1 for t in tenants if not t["is_active"])
+
+    stats_text = (
+        "📊 <b>«PRO HISOBCHI» TIZIM STATISTIKASI:</b>\n\n"
+        f"👥 <b>Jami mijozlar (tenants):</b> {total} ta\n"
+        f"🟢 <b>Faol va ishlayotganlar:</b> {active} ta\n"
+        f"🔴 <b>Muddati tugaganlar:</b> {expired} ta\n"
+        f"🚫 <b>Bloklanganlar:</b> {blocked} ta\n"
+        f"⚙️ <b>Server rejimi:</b> Multi-Tenant SaaS (Isolated DB)\n"
+        f"🕒 <b>Sana:</b> {datetime.now().strftime('%Y-%m-%d %H:%M')}"
+    )
+    kb = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="👥 Mijozlarni ko'rish", callback_data="admin_list_clients")],
+        [InlineKeyboardButton(text="🔙 Admin panelga", callback_data="open_admin_panel")]
+    ])
+    await callback.message.answer(stats_text, parse_mode=ParseMode.HTML, reply_markup=kb)
 
 @dp.message(Command("newclient"))
 async def newclient_command(message: types.Message):
@@ -250,23 +396,8 @@ async def clients_command(message: types.Message):
     if not is_admin(message.from_user.id):
         await message.answer("⛔ Faqat administrator uchun!")
         return
-
-    tenants = database.list_all_tenants()
-    if not tenants:
-        await message.answer("Hozircha tizimda mijozlar yo'q. Yangi qo'shish uchun: <code>/newclient Nomi 30</code>", parse_mode=ParseMode.HTML)
-        return
-
-    lines = ["👥 <b>MIJOZLAR VA OBUNALAR RO'YXATI:</b>\n"]
-    for i, t in enumerate(tenants, 1):
-        status_icon = "🟢" if (t["is_active"] and not t["is_expired"]) else "🔴"
-        qolgan = f"{t['days_left']} kun qoldi" if not t["is_expired"] else "TUGAGAN"
-        lines.append(
-            f"{i}. {status_icon} <b>{t['name']}</b>\n"
-            f"   🔑 Kalit: <code>{t['license_key']}</code>\n"
-            f"   ⏳ Muddat: {qolgan} ({t['expires_at'].split()[0]})\n"
-        )
-
-    await message.answer("\n".join(lines), parse_mode=ParseMode.HTML)
+    text, kb = get_clients_list_data()
+    await message.answer(text, parse_mode=ParseMode.HTML, reply_markup=kb)
 
 @dp.message(Command("extend"))
 async def extend_command(message: types.Message):
@@ -319,24 +450,6 @@ async def unblock_command(message: types.Message):
     else:
         await message.answer("❌ Kalit topilmadi.")
 
-@dp.callback_query(F.data == "admin_list_clients")
-async def cb_admin_clients(callback: types.CallbackQuery):
-    await callback.answer()
-    await clients_command(callback.message)
-
-@dp.callback_query(F.data.startswith("admin_add_"))
-async def cb_admin_quick_add(callback: types.CallbackQuery):
-    days = 365 if "365" in callback.data else 30
-    tenant = database.create_tenant(name=f"Ustaxona_{secrets.token_hex(2).upper()}", duration_days=days)
-    await callback.message.answer(
-        f"🎉 <b>Yangi {days} kunlik litsenziya yaratildi:</b>\n\n"
-        f"🏢 Nomi: <b>{tenant['name']}</b>\n"
-        f"🔑 Kalit kodi: <code>{tenant['license_key']}</code>\n"
-        f"⏰ Tugash muddati: <b>{tenant['expires_at']}</b>",
-        parse_mode=ParseMode.HTML
-    )
-    await callback.answer("Yaratildi!")
-
 @dp.message(Command("license"))
 async def license_command(message: types.Message):
     """Mijoz o'z litsenziyasini tekshirishi"""
@@ -380,7 +493,7 @@ async def activate_command(message: types.Message):
                 f"⏳ Qolgan muddat: <b>{v.get('days_left', 0)} kun ({t['expires_at']} gacha)</b>\n\n"
                 f"Endi dasturdan to'liq foydalanishingiz mumkin 👇",
                 parse_mode=ParseMode.HTML,
-                reply_markup=get_main_keyboard(config.WEBAPP_URL)
+                reply_markup=get_main_keyboard(config.WEBAPP_URL, is_admin(message.from_user.id))
             )
         else:
             await message.answer(f"❌ <b>Xatolik:</b> {v.get('message')}", parse_mode=ParseMode.HTML)
@@ -393,14 +506,29 @@ async def id_command(message: types.Message):
         f"🆔 <b>Chat ma'lumotlari:</b>\n\n"
         f"• Chat ID: <code>{message.chat.id}</code>\n"
         f"• Chat turi: <b>{message.chat.type}</b>\n"
-        f"• Sizning ID: <code>{message.from_user.id}</code>"
+        f"• Sizning Telegram ID: <code>{message.from_user.id}</code>"
     )
     await message.answer(chat_info, parse_mode=ParseMode.HTML)
 
+async def set_bot_commands():
+    """Telegram menyusiga buyruqlarni joylash"""
+    commands = [
+        types.BotCommand(command="start", description="Botni ishga tushirish"),
+        types.BotCommand(command="admin", description="👑 Admin Boshqaruv Paneli"),
+        types.BotCommand(command="clients", description="👥 Mijozlar ro'yxati"),
+        types.BotCommand(command="license", description="🔐 Mening litsenziyam"),
+        types.BotCommand(command="id", description="🆔 Telegram ID raqamim"),
+        types.BotCommand(command="help", description="Yordam"),
+    ]
+    try:
+        await bot.set_my_commands(commands)
+    except Exception as e:
+        logger.warning(f"Buyruqlarni o'rnatishda xatolik: {e}")
+
 async def main():
     logger.info("Bot ishga tushmoqda...")
-    # Polling boshlash
     await bot.delete_webhook(drop_pending_updates=True)
+    await set_bot_commands()
     await dp.start_polling(bot)
 
 if __name__ == "__main__":
