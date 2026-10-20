@@ -366,6 +366,7 @@ function saveCurrentOrder() {
 
   state.buyurtmalar.unshift(newOrder);
   localStorage.setItem(storagePrefix + 'buyurtmalar', JSON.stringify(state.buyurtmalar));
+  syncTenantDataToCloud('buyurtmalar', state.buyurtmalar);
 
   // Avtomatik ravishda Kesish saqlangan_olchamlar ga ham qo'shish
   try {
@@ -1324,6 +1325,145 @@ async function exportOrdersHistoryCsv() {
 }
 
 // ==========================================================================
+// SAAS LITSENZIYA VA BULUT SINXRONIZATSIYASI (MULTI-TENANT ISOLATION)
+// ==========================================================================
+
+export async function verifyTenantLicense(licenseKey) {
+  try {
+    const tgUser = window.Telegram?.WebApp?.initDataUnsafe?.user;
+    const res = await fetch('/api/auth/verify', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        license_key: licenseKey,
+        telegram_id: tgUser?.id || null
+      })
+    });
+    return await res.json();
+  } catch (e) {
+    console.warn('Litsenziya serveriga ulanishda xatolik:', e);
+    return { valid: true, offline: true };
+  }
+}
+
+export async function syncTenantDataToCloud(dataKey, content) {
+  const licenseKey = localStorage.getItem('prohisobchi_license_key');
+  if (!licenseKey) return;
+  try {
+    await fetch('/api/tenant/sync', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        license_key: licenseKey,
+        data_key: dataKey,
+        content: content
+      })
+    });
+  } catch (e) {
+    console.warn('Bulutga sinxronlashda xatolik:', e);
+  }
+}
+
+export async function fetchTenantDataFromCloud(licenseKey) {
+  try {
+    const res = await fetch(`/api/tenant/data?license_key=${encodeURIComponent(licenseKey)}`);
+    const json = await res.json();
+    if (json.ok && json.data) {
+      if (json.data.buyurtmalar && Array.isArray(json.data.buyurtmalar)) {
+        state.buyurtmalar = json.data.buyurtmalar;
+        localStorage.setItem('prohisobchi_buyurtmalar', JSON.stringify(state.buyurtmalar));
+      }
+      if (json.data.moliya) {
+        localStorage.setItem('prohisobchi_moliya', JSON.stringify(json.data.moliya));
+      }
+      if (json.data.qoldiqlar) {
+        state.qoldiqlar = json.data.qoldiqlar;
+        localStorage.setItem('prohisobchi_qoldiqlar', JSON.stringify(state.qoldiqlar));
+      }
+      if (json.data.brendlar) {
+        state.brendlar = json.data.brendlar;
+        localStorage.setItem('prohisobchi_brendlar', JSON.stringify(state.brendlar));
+      }
+      renderOrderHistory();
+      renderKassaScreen();
+      renderQarzScreen();
+      renderQoldiqlar();
+    }
+  } catch (e) {
+    console.warn('Bulutdan ma\'lumot yuklashda xatolik:', e);
+  }
+}
+
+function initLicenseSystem() {
+  const licenseOverlay = document.getElementById('modalLicenseOverlay');
+  const errorEl = document.getElementById('licenseErrorMsg');
+  const submitBtn = document.getElementById('btnSubmitLicense');
+  const keyInput = document.getElementById('inputLicenseKey');
+  const tenantSub = document.getElementById('headerTenantSubtitle');
+
+  let savedKey = localStorage.getItem('prohisobchi_license_key');
+
+  if (!savedKey) {
+    licenseOverlay?.classList.add('active');
+  } else {
+    verifyTenantLicense(savedKey).then(check => {
+      if (check.valid) {
+        if (check.tenant && tenantSub) {
+          tenantSub.innerHTML = `<b>${check.tenant.name}</b> • <span style="color:#34D399; font-weight:700;">⏰ ${check.days_left} kun</span>`;
+          fetchTenantDataFromCloud(savedKey);
+        }
+      } else {
+        licenseOverlay?.classList.add('active');
+        if (errorEl) {
+          errorEl.textContent = check.message || 'Obuna muddati tugagan!';
+          errorEl.style.display = 'block';
+        }
+      }
+    });
+  }
+
+  submitBtn?.addEventListener('click', async () => {
+    const entered = keyInput?.value?.trim().toUpperCase();
+    if (!entered) {
+      if (errorEl) {
+        errorEl.textContent = 'Iltimos, litsenziya kalitini kiriting!';
+        errorEl.style.display = 'block';
+      }
+      return;
+    }
+
+    submitBtn.textContent = 'Tekshirilmoqda...';
+    submitBtn.disabled = true;
+
+    try {
+      const res = await verifyTenantLicense(entered);
+      if (res.valid) {
+        localStorage.setItem('prohisobchi_license_key', entered);
+        licenseOverlay?.classList.remove('active');
+        if (tenantSub && res.tenant) {
+          tenantSub.innerHTML = `<b>${res.tenant.name}</b> • <span style="color:#34D399; font-weight:700;">⏰ ${res.days_left} kun</span>`;
+        }
+        await fetchTenantDataFromCloud(entered);
+        showToast(`Xush kelibsiz! ${res.tenant?.name || ''} faollashtirildi.`, '🎉');
+      } else {
+        if (errorEl) {
+          errorEl.textContent = res.message || 'Noto\'g\'ri litsenziya kaliti!';
+          errorEl.style.display = 'block';
+        }
+      }
+    } catch (e) {
+      if (errorEl) {
+        errorEl.textContent = 'Server bilan bog\'lanishda xatolik: ' + e.message;
+        errorEl.style.display = 'block';
+      }
+    } finally {
+      submitBtn.textContent = '🚀 Tizimga Kirish';
+      submitBtn.disabled = false;
+    }
+  });
+}
+
+// ==========================================================================
 // INITIALIZATION VA EVENT LISTENERS
 // ==========================================================================
 
@@ -1333,6 +1473,7 @@ document.addEventListener('DOMContentLoaded', () => {
     window.Telegram.WebApp.expand();
   }
   applyTheme();
+  initLicenseSystem();
 
   // Bottom Nav
   document.querySelectorAll('.nav-item-btn').forEach(btn => {
@@ -1590,6 +1731,7 @@ document.addEventListener('DOMContentLoaded', () => {
       summaSom: summa,
       izoh
     });
+    syncTenantDataToCloud('moliya', getMoliya());
 
     document.getElementById('modalKassaOverlay').classList.remove('active');
     renderKassaScreen();
@@ -1652,6 +1794,7 @@ document.addEventListener('DOMContentLoaded', () => {
       summaSom: summa,
       izoh
     });
+    syncTenantDataToCloud('moliya', getMoliya());
 
     document.getElementById('modalQarzOverlay').classList.remove('active');
     renderQarzScreen();

@@ -1,6 +1,9 @@
 import os
 from dotenv import load_dotenv
 
+BOT_DIR = os.path.dirname(os.path.abspath(__file__))
+load_dotenv(os.path.join(BOT_DIR, ".env"))
+load_dotenv(os.path.join(os.path.dirname(BOT_DIR), ".env"))
 load_dotenv()
 
 # Telegram Bot sozlamalari
@@ -11,3 +14,7 @@ DEFAULT_GROUP_CHAT_ID = os.getenv("GROUP_CHAT_ID", "-1004321522025")
 railway_domain = os.getenv("RAILWAY_PUBLIC_DOMAIN", "prohisobchi-production.up.railway.app")
 default_url = f"https://{railway_domain}"
 WEBAPP_URL = os.getenv("WEBAPP_URL", default_url)
+
+# Admin Telegram ID lari (vergul bilan ajratilgan)
+ADMIN_IDS = [int(x.strip()) for x in os.getenv("ADMIN_IDS", "").split(",") if x.strip().isdigit()]
+

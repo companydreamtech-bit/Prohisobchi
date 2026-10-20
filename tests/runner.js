@@ -40,12 +40,17 @@ import fs from 'node:fs';
 const py312 = 'C:\\Users\\iqbol\\AppData\\Local\\Programs\\Python\\Python312\\python.exe';
 const pythonExe = fs.existsSync(py312) ? py312 : 'python';
 
-const pyTest = spawnSync(pythonExe, [path.join(__dirname, 'test_backend.py')], {
+const pyTest1 = spawnSync(pythonExe, [path.join(__dirname, 'test_backend.py')], {
   stdio: 'inherit',
   shell: true
 });
 
-if (pyTest.status !== 0) {
+const pyTest2 = spawnSync(pythonExe, [path.join(__dirname, 'test_saas_database.py')], {
+  stdio: 'inherit',
+  shell: true
+});
+
+if (pyTest1.status !== 0 || pyTest2.status !== 0) {
   console.error('\n❌ Python backend testlarida xatolik aniqlandi!');
   process.exit(1);
 }

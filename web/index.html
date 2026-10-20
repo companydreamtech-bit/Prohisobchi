@@ -25,7 +25,7 @@
       <img src="img/logo.png" alt="Pro Hisobchi" class="header-logo-icon" style="border-radius:10px; object-fit:cover; border:1px solid rgba(16,185,129,0.4);">
       <div class="header-title-box">
         <h1>Pro Hisobchi</h1>
-        <span>Ustaxona ERP Tizimi</span>
+        <span id="headerTenantSubtitle">Ustaxona ERP Tizimi</span>
       </div>
     </div>
     <div class="header-right">
@@ -815,6 +815,33 @@
       <div style="display:grid; grid-template-columns:1fr 1fr; gap:6px; margin-top:6px;">
         <button class="btn-outline-pill" id="modalOrderBtnTransferCut" style="padding:10px 6px; font-size:12px; text-align:center; background:var(--brand-dark); color:#FFF; border:none;">✂️ Kesishga o'tkazish</button>
         <button class="btn-outline-pill" id="modalOrderBtnPrint" style="padding:10px 6px; font-size:12px; text-align:center;">🖨️ Chop etish</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 4. SaaS Litsenziya va Qulf Modali -->
+  <div class="modal-overlay" id="modalLicenseOverlay">
+    <div class="modal-sheet" style="max-width:380px; text-align:center;">
+      <div style="font-size:38px; margin-bottom:8px;">🔐</div>
+      <h3 style="font-size:18px; font-weight:800; color:var(--text-main); margin-bottom:6px;">Tizimni Faollashtirish</h3>
+      <p style="font-size:12px; color:var(--text-muted); line-height:1.4; margin-bottom:14px;">
+        Ustaxona hisob-kitob bazangizni ochish uchun administrator bergan maxsus litsenziya kodingizni (parol) kiriting:
+      </p>
+
+      <div style="margin-bottom:12px; text-align:left;">
+        <label style="font-size:10px; font-weight:700; color:var(--text-muted); display:block; margin-bottom:4px;">LITSENZIYA KALITI (PAROL)</label>
+        <input type="text" id="inputLicenseKey" placeholder="PRO-XXXX-XXXX" style="width:100%; padding:12px; font-size:16px; font-weight:800; text-transform:uppercase; text-align:center; letter-spacing:2px; font-family:var(--font-mono); border-radius:12px; border:2px solid var(--brand-emerald); background:var(--bg-card); color:var(--text-main);">
+      </div>
+
+      <div id="licenseErrorMsg" style="display:none; font-size:12px; color:#EF4444; margin-bottom:12px; font-weight:600; padding:8px; border-radius:8px; background:rgba(239,68,68,0.1);"></div>
+
+      <button class="btn-solid-green" id="btnSubmitLicense" style="width:100%; padding:12px; font-size:14px; font-weight:700; border-radius:12px; margin-bottom:10px;">
+        🚀 Tizimga Kirish
+      </button>
+
+      <div style="font-size:11px; color:var(--text-muted); margin-top:10px;">
+        Litsenziya sotib olish yoki uzaytirish uchun:<br>
+        <b>Telegram:</b> @companydreamtech
       </div>
     </div>
   </div>

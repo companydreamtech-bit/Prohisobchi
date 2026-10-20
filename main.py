@@ -45,9 +45,69 @@ async def create_web_application():
             "bot_connected": True
         })
 
+    import database
+
+    # REST API: Litsenziya tekshirish
+    async def api_auth_verify(request):
+        try:
+            body = await request.json()
+        except Exception:
+            body = {}
+        license_key = body.get("license_key", "")
+        telegram_id = body.get("telegram_id")
+        result = database.verify_license(license_key, telegram_id)
+        return web.json_response(result, headers={"Access-Control-Allow-Origin": "*"})
+
+    # REST API: Mijoz ma'lumotlarini yuklab olish
+    async def api_tenant_get_data(request):
+        license_key = request.query.get("license_key", "")
+        data_key = request.query.get("data_key")
+        v = database.verify_license(license_key)
+        if not v.get("valid"):
+            return web.json_response({"ok": False, "error": v.get("message")}, status=403, headers={"Access-Control-Allow-Origin": "*"})
+        
+        tenant_id = v["tenant"]["tenant_id"]
+        data = database.get_tenant_data(tenant_id, data_key)
+        return web.json_response({"ok": True, "tenant": v["tenant"], "data": data}, headers={"Access-Control-Allow-Origin": "*"})
+
+    # REST API: Mijoz ma'lumotlarini serverga sinxronizatsiya qilish
+    async def api_tenant_sync(request):
+        try:
+            body = await request.json()
+        except Exception:
+            return web.json_response({"ok": False, "error": "Noto'g'ri JSON formati"}, status=400, headers={"Access-Control-Allow-Origin": "*"})
+            
+        license_key = body.get("license_key", "")
+        data_key = body.get("data_key", "")
+        content = body.get("content")
+        
+        v = database.verify_license(license_key)
+        if not v.get("valid"):
+            return web.json_response({"ok": False, "error": v.get("message")}, status=403, headers={"Access-Control-Allow-Origin": "*"})
+        
+        tenant_id = v["tenant"]["tenant_id"]
+        database.save_tenant_data(tenant_id, data_key, content)
+        return web.json_response({"ok": True, "synced_key": data_key}, headers={"Access-Control-Allow-Origin": "*"})
+
+    # CORS OPTIONS
+    async def api_options_handler(request):
+        return web.Response(status=204, headers={
+            "Access-Control-Allow-Origin": "*",
+            "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+            "Access-Control-Allow-Headers": "Content-Type, Authorization"
+        })
+
     app.router.add_get('/', index_handler)
     app.router.add_get('/index.html', index_handler)
     app.router.add_get('/health', health_handler)
+    
+    app.router.add_post('/api/auth/verify', api_auth_verify)
+    app.router.add_get('/api/tenant/data', api_tenant_get_data)
+    app.router.add_post('/api/tenant/sync', api_tenant_sync)
+    
+    app.router.add_route('OPTIONS', '/api/auth/verify', api_options_handler)
+    app.router.add_route('OPTIONS', '/api/tenant/data', api_options_handler)
+    app.router.add_route('OPTIONS', '/api/tenant/sync', api_options_handler)
 
     return app
 

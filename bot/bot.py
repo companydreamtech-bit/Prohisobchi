@@ -160,31 +160,230 @@ async def help_command(message: types.Message):
     )
     await message.answer(help_text, parse_mode=ParseMode.HTML)
 
+import database
+
+def is_admin(user_id: int) -> bool:
+    """Foydalanuvchi admin ekanligini tekshirish"""
+    if not config.ADMIN_IDS:
+        return True  # Agar ADMIN_IDS bo'sh bo'lsa, erkin boshqarishga ruxsat
+    return user_id in config.ADMIN_IDS
+
+@dp.message(Command("admin"))
+async def admin_panel_command(message: types.Message):
+    """SaaS Admin Boshqaruv Paneli"""
+    if not is_admin(message.from_user.id):
+        await message.answer("⛔ <b>Kechirasiz, bu bo'lim faqat tizim administratori uchun!</b>", parse_mode=ParseMode.HTML)
+        return
+
+    tenants = database.list_all_tenants()
+    active_count = sum(1 for t in tenants if t["is_active"] and not t["is_expired"])
+    expired_count = sum(1 for t in tenants if t["is_expired"])
+
+    kb = InlineKeyboardMarkup(
+        inline_keyboard=[
+            [InlineKeyboardButton(text="👥 Mijozlar ro'yxati", callback_data="admin_list_clients")],
+            [
+                InlineKeyboardButton(text="➕ 1 oylik mijoz", callback_data="admin_add_30"),
+                InlineKeyboardButton(text="➕ 1 yillik mijoz", callback_data="admin_add_365")
+            ],
+            [InlineKeyboardButton(text="📊 Statistika", callback_data="admin_stats")]
+        ]
+    )
+
+    admin_text = (
+        "👑 <b>«PRO HISOBCHI» SAAS ADMIN PANELI</b>\n\n"
+        f"📊 <b>Jami mijozlar:</b> {len(tenants)} ta\n"
+        f"🟢 <b>Faol obunalar:</b> {active_count} ta\n"
+        f"🔴 <b>Muddati tugaganlar:</b> {expired_count} ta\n\n"
+        "<b>Tezkor buyruqlar:</b>\n"
+        "• <code>/newclient Nomi Kunlar</code> — Yangi mijoz va parol ochish\n"
+        "  <i>(Masalan: <code>/newclient Akfa_Chilonzor 30</code>)</i>\n"
+        "• <code>/extend KALIT 30</code> — Obunani uzaytirish\n"
+        "• <code>/block KALIT</code> — Mijozni to'xtatish\n"
+        "• <code>/unblock KALIT</code> — Mijozni qayta faollashtirish\n"
+        "• <code>/clients</code> — Barcha mijozlarni ko'rish"
+    )
+    await message.answer(admin_text, parse_mode=ParseMode.HTML, reply_markup=kb)
+
+@dp.message(Command("newclient"))
+async def newclient_command(message: types.Message):
+    """Yangi mijoz va litsenziya kaliti yaratish"""
+    if not is_admin(message.from_user.id):
+        await message.answer("⛔ Faqat administrator uchun!")
+        return
+
+    parts = message.text.split()
+    if len(parts) < 2:
+        await message.answer(
+            "⚠️ <b>Foydalanish tartibi:</b>\n"
+            "<code>/newclient [Ustaxona_Nomi] [Kunlar_Soni]</code>\n\n"
+            "Masalan:\n"
+            "<code>/newclient Akfa_Sex_1 30</code>\n"
+            "<code>/newclient OynaRom_Buxoro 365</code>",
+            parse_mode=ParseMode.HTML
+        )
+        return
+
+    nomi = parts[1].replace("_", " ")
+    days = int(parts[2]) if len(parts) > 2 and parts[2].isdigit() else 30
+
+    tenant = database.create_tenant(name=nomi, duration_days=days)
+
+    client_msg = (
+        f"🎉 <b>Yangi mijoz muvaffaqiyatli yaratildi!</b>\n\n"
+        f"🏢 Ustaxona: <b>{tenant['name']}</b>\n"
+        f"🔑 Litsenziya kodi (Parol): <code>{tenant['license_key']}</code>\n"
+        f"⏰ Obuna muddati: <b>{days} kun ({tenant['expires_at']} gacha)</b>\n"
+        f"🆔 Tenant ID: <code>{tenant['tenant_id']}</code>\n\n"
+        f"━━━━━━━━━━━━━━━━━━━━\n"
+        f"📩 <b>Mijozga yuborish uchun tayyor matn:</b>\n\n"
+        f"«Assalomu alaykum! <b>«Pro Hisobchi»</b> ustaxona ERP tizimiga xush kelibsiz!\n\n"
+        f"🔑 Sizning kirish kodingiz: <code>{tenant['license_key']}</code>\n"
+        f"⏰ Faollik muddati: {days} kun ({tenant['expires_at']} gacha)\n\n"
+        f"Ilovani ochish uchun: {config.WEBAPP_URL} »"
+    )
+    await message.answer(client_msg, parse_mode=ParseMode.HTML)
+
+@dp.message(Command("clients"))
+async def clients_command(message: types.Message):
+    """Barcha mijozlar ro'yxatini ko'rsatish"""
+    if not is_admin(message.from_user.id):
+        await message.answer("⛔ Faqat administrator uchun!")
+        return
+
+    tenants = database.list_all_tenants()
+    if not tenants:
+        await message.answer("Hozircha tizimda mijozlar yo'q. Yangi qo'shish uchun: <code>/newclient Nomi 30</code>", parse_mode=ParseMode.HTML)
+        return
+
+    lines = ["👥 <b>MIJOZLAR VA OBUNALAR RO'YXATI:</b>\n"]
+    for i, t in enumerate(tenants, 1):
+        status_icon = "🟢" if (t["is_active"] and not t["is_expired"]) else "🔴"
+        qolgan = f"{t['days_left']} kun qoldi" if not t["is_expired"] else "TUGAGAN"
+        lines.append(
+            f"{i}. {status_icon} <b>{t['name']}</b>\n"
+            f"   🔑 Kalit: <code>{t['license_key']}</code>\n"
+            f"   ⏳ Muddat: {qolgan} ({t['expires_at'].split()[0]})\n"
+        )
+
+    await message.answer("\n".join(lines), parse_mode=ParseMode.HTML)
+
+@dp.message(Command("extend"))
+async def extend_command(message: types.Message):
+    """Obunani uzaytirish"""
+    if not is_admin(message.from_user.id):
+        await message.answer("⛔ Faqat administrator uchun!")
+        return
+
+    parts = message.text.split()
+    if len(parts) < 3 or not parts[2].isdigit():
+        await message.answer("⚠️ Format: <code>/extend [KALIT_YOKI_TENANT_ID] [QO'SHILADIGAN_KUNLAR]</code>\nMasalan: <code>/extend PRO-ABCD-1234 30</code>", parse_mode=ParseMode.HTML)
+        return
+
+    key = parts[1].strip()
+    days = int(parts[2])
+    new_exp = database.extend_tenant_subscription(key, days)
+
+    if new_exp:
+        await message.answer(f"✅ <b>{key}</b> obunasi +{days} kunga uzaytirildi!\nYangi tugash muddati: <b>{new_exp}</b>", parse_mode=ParseMode.HTML)
+    else:
+        await message.answer("❌ Bunday litsenziya kaliti topilmadi!")
+
+@dp.message(Command("block"))
+async def block_command(message: types.Message):
+    """Mijozni to'xtatish"""
+    if not is_admin(message.from_user.id):
+        return
+    parts = message.text.split()
+    if len(parts) < 2:
+        await message.answer("⚠️ Format: <code>/block [KALIT]</code>", parse_mode=ParseMode.HTML)
+        return
+    ok = database.set_tenant_status(parts[1].strip(), False)
+    if ok:
+        await message.answer(f"🚫 Litsenziya ({parts[1]}) muvaffaqiyatli bloklandi.")
+    else:
+        await message.answer("❌ Kalit topilmadi.")
+
+@dp.message(Command("unblock"))
+async def unblock_command(message: types.Message):
+    """Mijozni qayta yoqish"""
+    if not is_admin(message.from_user.id):
+        return
+    parts = message.text.split()
+    if len(parts) < 2:
+        await message.answer("⚠️ Format: <code>/unblock [KALIT]</code>", parse_mode=ParseMode.HTML)
+        return
+    ok = database.set_tenant_status(parts[1].strip(), True)
+    if ok:
+        await message.answer(f"✅ Litsenziya ({parts[1]}) faollashtirildi.")
+    else:
+        await message.answer("❌ Kalit topilmadi.")
+
+@dp.callback_query(F.data == "admin_list_clients")
+async def cb_admin_clients(callback: types.CallbackQuery):
+    await callback.answer()
+    await clients_command(callback.message)
+
+@dp.callback_query(F.data.startswith("admin_add_"))
+async def cb_admin_quick_add(callback: types.CallbackQuery):
+    days = 365 if "365" in callback.data else 30
+    tenant = database.create_tenant(name=f"Ustaxona_{secrets.token_hex(2).upper()}", duration_days=days)
+    await callback.message.answer(
+        f"🎉 <b>Yangi {days} kunlik litsenziya yaratildi:</b>\n\n"
+        f"🏢 Nomi: <b>{tenant['name']}</b>\n"
+        f"🔑 Kalit kodi: <code>{tenant['license_key']}</code>\n"
+        f"⏰ Tugash muddati: <b>{tenant['expires_at']}</b>",
+        parse_mode=ParseMode.HTML
+    )
+    await callback.answer("Yaratildi!")
+
 @dp.message(Command("license"))
 async def license_command(message: types.Message):
-    """SaaS Litsenziya va obuna tekshirish"""
+    """Mijoz o'z litsenziyasini tekshirishi"""
     user_id = message.from_user.id
-    license_text = (
-        "🔐 <b>«Pro Hisobchi» Litsenziya Tizimi:</b>\n\n"
-        f"• Sizning Telegram ID: <code>{user_id}</code>\n"
-        "• Litsenziya holati: <b>Faol (Cheksiz / PRO)</b> ✅\n"
-        "• Tizim rejimi: <b>Ko'p foydalanuvchili (Multi-Tenant SaaS)</b>\n\n"
-        "<i>Boshqa usta yoki sexlar uchun litsenziya kalitini faollashtirish:</i>\n"
-        "<code>/activate PRO-2026-UZB</code>"
-    )
-    await message.answer(license_text, parse_mode=ParseMode.HTML)
+    tenants = database.list_all_tenants()
+    user_tenant = next((t for t in tenants if t.get("telegram_id") == user_id), None)
+
+    if user_tenant:
+        exp = user_tenant["expires_at"]
+        status = "Faol ✅" if not user_tenant["is_expired"] and user_tenant["is_active"] else "Muddati tugagan 🔴"
+        await message.answer(
+            f"🔐 <b>Sizning Litsenziyangiz:</b>\n\n"
+            f"🏢 Ustaxona: <b>{user_tenant['name']}</b>\n"
+            f"🔑 Kalit: <code>{user_tenant['license_key']}</code>\n"
+            f"📊 Holat: <b>{status}</b>\n"
+            f"⏳ Tugash muddati: <b>{exp}</b> ({user_tenant['days_left']} kun qoldi)",
+            parse_mode=ParseMode.HTML
+        )
+    else:
+        await message.answer(
+            "ℹ️ <b>Siz hali litsenziya kalitini faollashtirmagansiz.</b>\n\n"
+            "Litsenziyani ulash uchun:\n"
+            "<code>/activate PRO-XXXX-XXXX</code>\n\n"
+            "Litsenziya sotib olish uchun adminga murojaat qiling.",
+            parse_mode=ParseMode.HTML
+        )
 
 @dp.message(Command("activate"))
 async def activate_command(message: types.Message):
+    """Litsenziya kalitini Telegram hisobiga bog'lash"""
     args = message.text.split()
     if len(args) > 1:
-        code = args[1]
-        await message.answer(
-            f"🎉 <b>Litsenziya muvaffaqiyatli faollashtirildi!</b>\n"
-            f"Kalit kodi: <code>{code}</code>\n"
-            f"Barcha modullar (1D Raskroy, Kassa, Qarz, BOM) cheklovlarsiz ishga tushirildi.",
-            parse_mode=ParseMode.HTML
-        )
+        code = args[1].strip()
+        v = database.verify_license(code, telegram_id=message.from_user.id)
+        if v.get("valid"):
+            t = v["tenant"]
+            await message.answer(
+                f"🎉 <b>Litsenziya muvaffaqiyatli faollashtirildi!</b>\n\n"
+                f"🏢 Ustaxona: <b>{t['name']}</b>\n"
+                f"🔑 Kalit: <code>{t['license_key']}</code>\n"
+                f"⏳ Qolgan muddat: <b>{v.get('days_left', 0)} kun ({t['expires_at']} gacha)</b>\n\n"
+                f"Endi dasturdan to'liq foydalanishingiz mumkin 👇",
+                parse_mode=ParseMode.HTML,
+                reply_markup=get_main_keyboard(config.WEBAPP_URL)
+            )
+        else:
+            await message.answer(f"❌ <b>Xatolik:</b> {v.get('message')}", parse_mode=ParseMode.HTML)
     else:
         await message.answer("⚠️ Litsenziya kodini kiriting. Masalan: <code>/activate PRO-2026-UZB</code>", parse_mode=ParseMode.HTML)
 
