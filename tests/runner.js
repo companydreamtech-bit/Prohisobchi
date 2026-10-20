@@ -14,7 +14,8 @@ console.log('📌 1-BOSQICH: Frontend va Hisob-Kitob Yadrosi Testlari (Node.js T
 const jsTests = [
   path.join(__dirname, 'test_calculator.js'),
   path.join(__dirname, 'test_cutting.js'),
-  path.join(__dirname, 'test_inventory_finance.js')
+  path.join(__dirname, 'test_inventory_finance.js'),
+  path.join(__dirname, 'test_single_page_html.js')
 ];
 
 const nodeTest = spawnSync('node', ['--test', ...jsTests], {
