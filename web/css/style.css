@@ -1373,3 +1373,112 @@ input, select, textarea, button {
   transform: translateX(-50%) translateY(0);
 }
 
+/* ==========================================================================
+   PREVIEW BOX & KESISH NATIJALARI (FIGMA DESIGN MOSLASHUVI)
+   ========================================================================== */
+
+.preview-box {
+  background: #0f172a;
+  color: #e2e8f0;
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  line-height: 1.5;
+  padding: 12px;
+  border-radius: var(--radius-sm);
+  white-space: pre-wrap;
+  overflow-x: auto;
+  margin-bottom: 12px;
+  border: 1px solid #1e293b;
+}
+
+[data-theme="dark"] .preview-box {
+  background: #04120c;
+  border-color: #0d3b2c;
+  color: #d1fae5;
+}
+
+.umumiy-box {
+  background: var(--bg-card);
+  border: 1px solid var(--border-card);
+  border-radius: var(--radius-sm);
+  padding: 12px;
+  margin-bottom: 12px;
+}
+
+.umumiy-title {
+  font-size: 12px;
+  font-weight: 800;
+  color: var(--brand-dark);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 8px;
+}
+
+[data-theme="dark"] .umumiy-title {
+  color: var(--brand-mint);
+}
+
+.sub-title {
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  margin: 6px 0 4px;
+}
+
+.detal-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 4px 0;
+  border-bottom: 1px dashed var(--border-card);
+  font-size: 12px;
+}
+
+.detal-row:last-child {
+  border-bottom: none;
+}
+
+.detal-sm {
+  font-family: var(--font-mono);
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.detal-dona {
+  font-weight: 700;
+  color: var(--brand-emerald);
+}
+
+.tannarx-summary-card {
+  background: linear-gradient(135deg, #062419 0%, #0d3b2c 100%);
+  color: #ffffff;
+  border-radius: var(--radius-md);
+  padding: 14px 16px;
+  margin-bottom: 14px;
+  border: 1.5px solid var(--brand-emerald);
+  box-shadow: 0 4px 16px rgba(16, 185, 129, 0.15);
+}
+
+.tannarx-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 12px;
+  padding: 3px 0;
+  opacity: 0.9;
+}
+
+.tannarx-divider {
+  height: 1px;
+  background: rgba(255, 255, 255, 0.15);
+  margin: 8px 0;
+}
+
+.tannarx-total-val {
+  font-size: 18px;
+  font-weight: 800;
+  font-family: var(--font-mono);
+  color: #34d399;
+}
+

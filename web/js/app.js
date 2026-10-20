@@ -11,7 +11,11 @@ import {
   hisoblaM2,
   formatSom,
   hisoblaBuyurtmaNarxi,
-  generatsiyaDetallar
+  generatsiyaDetallar,
+  DEFAULT_TANNARX_STAVKALARI,
+  getTannarxStavkalari,
+  saqlaTannarxStavkalari,
+  hisoblaSebestoimost
 } from './calculator.js';
 
 import {
@@ -58,10 +62,12 @@ import {
 // BAZAVIY HOLAT (STATE) & SAAS MULTI-TENANCY
 // ==========================================================================
 
-const DEFAULT_PROFILLAR = [
-  { id: 1, nom: 'Rom (Kichik)', chakanaNarx: 23, dilerNarx: 20, minNarx: true, tur: 'kichik' },
-  { id: 2, nom: 'Eshik (Katta)', chakanaNarx: 28, dilerNarx: 24, minNarx: false, tur: 'katta' },
-  { id: 3, nom: 'Setka profil (Universal)', chakanaNarx: 18, dilerNarx: 15, minNarx: false, tur: 'haytek' }
+export const DEFAULT_PROFILLAR = [
+  { id: 1, nom: 'Set Pro Katta', chakanaNarx: 28, dilerNarx: 25, narx: 28, dillerNarx: 25, minNarx: false, tur: 'katta', kesishTur: 'eshik' },
+  { id: 2, nom: 'Set Pro Kichik', chakanaNarx: 23, dilerNarx: 20, narx: 23, dillerNarx: 20, minNarx: true, tur: 'kichik', kesishTur: 'pastga' },
+  { id: 3, nom: 'Set Pro Haytek', chakanaNarx: 15, dilerNarx: 13, narx: 15, dillerNarx: 13, minNarx: false, tur: 'haytek', kesishTur: 'haytek' },
+  { id: 5, nom: 'Kichkina yonga', chakanaNarx: 25, dilerNarx: 22, narx: 25, dillerNarx: 22, minNarx: true, tur: 'kichik', kesishTur: 'yonga' },
+  { id: 4, nom: 'Oddiy Setka', chakanaNarx: 10, dilerNarx: 8, narx: 10, dillerNarx: 8, minNarx: false, tur: 'kichik', kesishTur: 'yonga' }
 ];
 
 // Telegram foydalanuvchi ID si orqali ko'p foydalanuvchili xotira
@@ -94,7 +100,16 @@ let state = {
   lastCuttingResult: null,
   activeModalOrder: null,
   kassaModalType: 'kirim',
-  qarzModalType: 'haqqim'
+  qarzModalType: 'haqqim',
+  tannarxStavkalari: getTannarxStavkalari(),
+  qoldiqlar: JSON.parse(localStorage.getItem('prohisobchi_qoldiqlar')) || {
+    kichkina: [],
+    katta: [],
+    romRuchka: [],
+    kattaRuchka: [],
+    haytek: []
+  },
+  saqlanganOlchamlar: JSON.parse(localStorage.getItem('saqlangan_olchamlar')) || []
 };
 
 // ==========================================================================
@@ -352,6 +367,33 @@ function saveCurrentOrder() {
   state.buyurtmalar.unshift(newOrder);
   localStorage.setItem(storagePrefix + 'buyurtmalar', JSON.stringify(state.buyurtmalar));
 
+  // Avtomatik ravishda Kesish saqlangan_olchamlar ga ham qo'shish
+  try {
+    const sList = JSON.parse(localStorage.getItem('saqlangan_olchamlar')) || [];
+    sList.unshift({
+      id: Date.now(),
+      nom: `${newOrder.mijozIsm} (#${newOrder.id}) — ${newOrder.rang}`,
+      mijozIsm: newOrder.mijozIsm,
+      izoh: `Buyurtma #${newOrder.id}`,
+      rang: newOrder.rang,
+      vaqt: new Date().toLocaleString('ru-RU'),
+      olchamlar: validRows.map(r => {
+        const prof = state.profillar.find(p => p.id === r.profilId);
+        return {
+          id: Date.now() + Math.random(),
+          boy: r.boy,
+          eni: r.eni,
+          soni: r.soni || 1,
+          tur: r.tur || prof?.kesishTur || 'yonga'
+        };
+      })
+    });
+    localStorage.setItem('saqlangan_olchamlar', JSON.stringify(sList));
+    state.saqlanganOlchamlar = sList;
+  } catch (e) {
+    console.warn('Saqlangan olchamlar xatosi:', e);
+  }
+
   if (state.orderTolovTuri === 'Naqd' || state.orderTolovTuri === 'Karta') {
     tranzaksiyaQosh({
       tur: 'kirim',
@@ -438,6 +480,15 @@ function openOrderDetailModal(order) {
       </div>
     </div>
 
+    <!-- Narxni tahrirlash inputi -->
+    <div style="background:var(--bg-input); padding:8px 12px; border-radius:10px; margin-bottom:10px; display:flex; justify-content:space-between; align-items:center;">
+      <span style="font-size:12px; font-weight:700;">Narxni tahrirlash ($):</span>
+      <div style="display:flex; gap:6px; align-items:center;">
+        <input type="number" step="0.5" id="detailOrderPriceInput" value="${order.jamiUsd}" style="width:75px; padding:5px 8px; border-radius:8px; border:1px solid var(--border-card); font-weight:800; font-family:var(--font-mono); text-align:center; font-size:13px;">
+        <button type="button" id="btnSaveDetailOrderPrice" class="btn-solid-green" style="padding:6px 12px; font-size:11px;">Saqlash</button>
+      </div>
+    </div>
+
     <div style="margin-bottom:10px;">
       <span style="font-size:11px; font-weight:700; color:var(--text-muted); text-transform:uppercase;">O'LCHAMLAR:</span>
       ${rowsHtml}
@@ -452,6 +503,12 @@ function openOrderDetailModal(order) {
         <div style="font-size:15px; font-weight:800; font-family:var(--font-mono); color:#059669;">${order.jamiUsd} $</div>
         <div style="font-size:11px; color:#64748B;">${order.jamiM2} m² (${order.jamiSoni} dona)</div>
       </div>
+    </div>
+
+    <!-- Terminal preview chek -->
+    <div style="margin-bottom:10px;">
+      <span style="font-size:11px; font-weight:700; color:var(--text-muted); text-transform:uppercase; display:block; margin-bottom:4px;">CHEK MATNI:</span>
+      <pre class="preview-box">${generatsiyaIshchiXabari(order, state.kurs)}</pre>
     </div>
 
     <!-- Buyurtma holatini o'zgartirish chiplari -->
@@ -471,6 +528,19 @@ function openOrderDetailModal(order) {
       </button>
     </div>
   `;
+
+  // Narxni saqlash hodisasi
+  body.querySelector('#btnSaveDetailOrderPrice')?.addEventListener('click', () => {
+    const val = parseFloat(body.querySelector('#detailOrderPriceInput')?.value);
+    if (!isNaN(val) && val >= 0) {
+      order.jamiUsd = val;
+      order.jamiSom = Math.round(val * state.kurs);
+      localStorage.setItem(storagePrefix + 'buyurtmalar', JSON.stringify(state.buyurtmalar));
+      openOrderDetailModal(order);
+      renderOrdersHistory();
+      showToast('Buyurtma narxi yangilandi!', '💰');
+    }
+  });
 
   // Statusni o'zgartirish hodisalari
   body.querySelectorAll('.btn-change-status').forEach(btn => {
@@ -646,9 +716,120 @@ function renderCuttingOrderRows() {
   });
 }
 
+function renderQoldiqlar(tur = null) {
+  const turlar = tur ? [tur] : ['kichkina', 'katta', 'romRuchka', 'kattaRuchka', 'haytek'];
+  turlar.forEach(t => {
+    const wrap = document.getElementById(`qoldiqList-${t}`);
+    if (!wrap) return;
+    wrap.innerHTML = '';
+    const items = state.qoldiqlar[t] || [];
+    if (items.length === 0) return;
+
+    items.forEach((q, qIdx) => {
+      const row = document.createElement('div');
+      row.style.cssText = 'display:grid; grid-template-columns:1fr 70px 30px; gap:6px; margin-bottom:4px; align-items:center;';
+      row.innerHTML = `
+        <input type="number" step="0.5" class="inp-qoldiq-uz" value="${q.uzunlik}" placeholder="Uzunlik (sm)" style="padding:6px; font-size:12px; font-weight:700; border-radius:6px; border:1px solid var(--border-card);">
+        <input type="number" min="1" class="inp-qoldiq-soni" value="${q.soni || 1}" placeholder="Soni" style="padding:6px; font-size:12px; font-weight:700; text-align:center; border-radius:6px; border:1px solid var(--border-card);">
+        <button type="button" class="btn-del-qoldiq" style="background:#FEE8E8; color:#EF4444; border:none; border-radius:6px; height:28px; font-weight:700; cursor:pointer;">✕</button>
+      `;
+
+      row.querySelector('.inp-qoldiq-uz').addEventListener('input', (e) => {
+        q.uzunlik = parseFloat(e.target.value) || 0;
+        localStorage.setItem('prohisobchi_qoldiqlar', JSON.stringify(state.qoldiqlar));
+      });
+      row.querySelector('.inp-qoldiq-soni').addEventListener('input', (e) => {
+        q.soni = parseInt(e.target.value) || 1;
+        localStorage.setItem('prohisobchi_qoldiqlar', JSON.stringify(state.qoldiqlar));
+      });
+      row.querySelector('.btn-del-qoldiq').addEventListener('click', () => {
+        state.qoldiqlar[t].splice(qIdx, 1);
+        localStorage.setItem('prohisobchi_qoldiqlar', JSON.stringify(state.qoldiqlar));
+        renderQoldiqlar(t);
+        runCuttingLogic(false);
+      });
+
+      wrap.appendChild(row);
+    });
+  });
+}
+
+function renderSaqlanganSizes() {
+  const countEl = document.getElementById('savedSizesCount');
+  const container = document.getElementById('savedCuttingSizesList');
+  if (countEl) countEl.textContent = state.saqlanganOlchamlar.length;
+  if (!container) return;
+
+  if (state.saqlanganOlchamlar.length === 0) {
+    container.innerHTML = '<div style="text-align:center; padding:12px; color:var(--text-muted); font-size:11px;">Saqlangan o\'lchamlar mavjud emas.</div>';
+    return;
+  }
+
+  container.innerHTML = '';
+  state.saqlanganOlchamlar.forEach((item, idx) => {
+    const card = document.createElement('div');
+    card.style.cssText = 'background:var(--bg-input); padding:8px 10px; border-radius:8px; margin-bottom:6px; border:1px solid var(--border-card);';
+    card.innerHTML = `
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
+        <span style="font-size:12px; font-weight:800; color:var(--text-primary);">${item.nom || 'Saqlangan o\'lcham'}</span>
+        <span style="font-size:10px; color:var(--text-muted);">${item.vaqt || ''}</span>
+      </div>
+      <div style="font-size:11px; color:var(--text-secondary); margin-bottom:6px;">
+        📐 ${item.olchamlar?.length || 0} ta o'lcham • ${item.rang || 'OQ'}
+      </div>
+      <div style="display:flex; gap:6px;">
+        <button class="btn-outline-pill btn-load-saved" style="padding:4px 8px; font-size:11px; flex:1; text-align:center;">📥 Yuklash</button>
+        <button class="btn-solid-green btn-tg-saved" style="padding:4px 8px; font-size:11px; flex:1; text-align:center;">✈️ TG</button>
+        <button class="btn-outline-pill btn-del-saved" style="padding:4px 8px; font-size:11px; color:#EF4444; border-color:#EF4444;">✕</button>
+      </div>
+    `;
+
+    card.querySelector('.btn-load-saved').addEventListener('click', () => {
+      state.cuttingRows = JSON.parse(JSON.stringify(item.olchamlar));
+      renderCuttingOrderRows();
+      runCuttingLogic(true);
+      showToast('O\'lchamlar kesishga yuklandi!', '📥');
+    });
+
+    card.querySelector('.btn-tg-saved').addEventListener('click', async () => {
+      try {
+        const tanlanganBrend = state.brendlar.find(b => b.id === state.cuttingSelectedBrendId) || state.brendlar[0];
+        const fakeOrder = {
+          id: 'SAQLANGAN',
+          sana: item.vaqt || new Date().toLocaleTimeString('ru-RU'),
+          mijozIsm: item.mijozIsm || item.nom,
+          rang: item.rang || 'OQ',
+          detallar: generatsiyaDetallar(item.olchamlar, tanlanganBrend)
+        };
+        const pUz = parseFloat(document.getElementById('profilUzunlik')?.value) || STANDART_PROFIL_UZUNLIGI;
+        const res = hisoblaGuruhlanganRaskroy(fakeOrder.detallar, pUz, {}, tanlanganBrend.arra || ARRA_QALINLIGI);
+        await buyurtmaniGuruhgaYubor(fakeOrder, res, hisoblaBOM(fakeOrder.detallar));
+        showToast('Saqlangan o\'lcham TG ga yuborildi!', '✈️');
+      } catch (e) {
+        alert(e.message);
+      }
+    });
+
+    card.querySelector('.btn-del-saved').addEventListener('click', () => {
+      state.saqlanganOlchamlar.splice(idx, 1);
+      localStorage.setItem('saqlangan_olchamlar', JSON.stringify(state.saqlanganOlchamlar));
+      renderSaqlanganSizes();
+      showToast('O\'chirildi!', '🗑');
+    });
+
+    container.appendChild(card);
+  });
+}
+
 function runCuttingLogic(showToastMsg = false) {
   const validRows = (state.cuttingRows || []).filter(r => parseFloat(r.eni) > 0 && parseFloat(r.boy) > 0);
   const barsContainer = document.getElementById('cuttingVisualBarsContainer');
+  const detailsCard = document.getElementById('cuttingDetailsCard');
+  const detailsContainer = document.getElementById('cuttingDetailsListContainer');
+  const groupedContainer = document.getElementById('cuttingGroupedListContainer');
+  const usageCard = document.getElementById('cuttingProfileUsageCard');
+  const usageContainer = document.getElementById('cuttingProfileUsageContainer');
+  const tannarxCard = document.getElementById('cuttingTannarxCard');
 
   if (validRows.length === 0) {
     document.getElementById('cutStatTotalBars').textContent = '0 ta';
@@ -657,30 +838,101 @@ function runCuttingLogic(showToastMsg = false) {
     if (barsContainer) {
       barsContainer.innerHTML = '<div style="text-align:center;padding:20px;color:var(--text-muted);font-size:12px;">Kesish hisoblash uchun yuqoridagi maydonlarga ENI va BO\'YI o\'lchamlarini kiriting yoki "Buyurtmadan olish" tugmasini bosing.</div>';
     }
+    if (detailsCard) detailsCard.style.display = 'none';
+    if (groupedContainer) groupedContainer.innerHTML = '';
+    if (usageCard) usageCard.style.display = 'none';
+    if (tannarxCard) tannarxCard.innerHTML = '';
     if (showToastMsg) showToast('Avval o\'lchamlarni kiriting!', '⚠️');
     return;
   }
 
   const tanlanganBrend = state.brendlar.find(b => b.id === (state.cuttingSelectedBrendId || state.selectedBrendId)) || state.brendlar[0];
   const detallar = generatsiyaDetallar(validRows, tanlanganBrend);
+  const pUz = parseFloat(document.getElementById('profilUzunlik')?.value) || STANDART_PROFIL_UZUNLIGI;
 
   const useStock = document.getElementById('cutUseStockSwitch')?.checked ?? true;
   let omborQoldiqlari = {};
   if (useStock) {
-    const ombor = getOmbor();
     omborQoldiqlari = {
-      kichikRom: ombor.yaroqliQoldiqlar.map(q => q.uzunlik),
-      kattaEshik: ombor.yaroqliQoldiqlar.map(q => q.uzunlik)
+      kichikRom: (state.qoldiqlar.kichkina || []).flatMap(q => Array(parseInt(q.soni) || 1).fill(parseFloat(q.uzunlik))),
+      kattaEshik: (state.qoldiqlar.katta || []).flatMap(q => Array(parseInt(q.soni) || 1).fill(parseFloat(q.uzunlik))),
+      romRuchka: (state.qoldiqlar.romRuchka || []).flatMap(q => Array(parseInt(q.soni) || 1).fill(parseFloat(q.uzunlik))),
+      kattaRuchka: (state.qoldiqlar.kattaRuchka || []).flatMap(q => Array(parseInt(q.soni) || 1).fill(parseFloat(q.uzunlik))),
+      haytek: (state.qoldiqlar.haytek || []).flatMap(q => Array(parseInt(q.soni) || 1).fill(parseFloat(q.uzunlik)))
     };
   }
 
-  const guruhlangan = hisoblaGuruhlanganRaskroy(detallar, STANDART_PROFIL_UZUNLIGI, omborQoldiqlari, tanlanganBrend.arra || ARRA_QALINLIGI);
+  const guruhlangan = hisoblaGuruhlanganRaskroy(detallar, pUz, omborQoldiqlari, tanlanganBrend.arra || ARRA_QALINLIGI);
   state.lastCuttingResult = guruhlangan;
 
   document.getElementById('cutStatTotalBars').textContent = `${guruhlangan.jamiTayoqlarBarcha} ta`;
   document.getElementById('cutStatEfficiency').textContent = `${guruhlangan.umumiySamaradorlik}%`;
   document.getElementById('cutStatWaste').textContent = `${guruhlangan.jamiIsrofBarcha} sm`;
 
+  // 1. Kerakli detallar ro'yxati
+  if (detailsCard && detailsContainer) {
+    detailsCard.style.display = 'block';
+    detailsContainer.innerHTML = '';
+    detallar.forEach(d => {
+      const row = document.createElement('div');
+      row.style.cssText = 'padding:6px 0; border-bottom:1px dashed var(--border-card); font-size:12px;';
+      let info = `<b>${d.idx + 1}-to'r: ${d.eni} × ${d.boy} sm [${d.turNom}] (${d.soni} dona)</b><br>`;
+      info += `<span style="color:var(--text-secondary);">Ramka: ${d.ramkaBoy} × ${d.ramkaEn} sm</span>`;
+      if (d.hasRuchka && d.ruchka > 0) info += ` • <span style="color:var(--text-secondary);">Ruchka: ${d.ruchka} sm</span>`;
+      if (d.setkaUz > 0) info += ` • <span style="color:var(--text-secondary);">Setka: ${d.setkaUz}sm (${Math.ceil(d.setkaEnDona)} dona)</span>`;
+      info += ` • <span style="color:var(--text-secondary);">Ip: ${d.ip} sm</span>`;
+      row.innerHTML = info;
+      detailsContainer.appendChild(row);
+    });
+  }
+
+  // 2. Umumiy bir xil o'lchamlar qo'shilgan
+  if (groupedContainer) {
+    const ramkaG = {}, ruchkaG = {};
+    detallar.forEach(d => {
+      const s = d.soni;
+      const k1 = d.ramkaBoy;
+      ramkaG[k1] = (ramkaG[k1] || 0) + 2 * s;
+      const k2 = d.ramkaEn;
+      ramkaG[k2] = (ramkaG[k2] || 0) + 2 * s;
+      if (d.hasRuchka && d.ruchka > 0) {
+        const k3 = d.ruchka;
+        ruchkaG[k3] = (ruchkaG[k3] || 0) + s;
+      }
+    });
+
+    let groupedHtml = `
+      <div class="umumiy-box">
+        <div class="umumiy-title">UMUMIY (bir xil o'lchamlar qo'shilgan)</div>
+        <div class="sub-title">RAMKA PROFIL:</div>
+    `;
+
+    Object.keys(ramkaG).sort((a, b) => parseFloat(b) - parseFloat(a)).forEach(sm => {
+      groupedHtml += `
+        <div class="detal-row">
+          <span class="detal-sm">${sm} sm</span>
+          <span class="detal-dona">${ramkaG[sm]} ta</span>
+        </div>
+      `;
+    });
+
+    if (Object.keys(ruchkaG).length > 0) {
+      groupedHtml += `<div class="sub-title" style="margin-top:10px;">RUCHKA PROFIL:</div>`;
+      Object.keys(ruchkaG).sort((a, b) => parseFloat(b) - parseFloat(a)).forEach(sm => {
+        groupedHtml += `
+          <div class="detal-row">
+            <span class="detal-sm">${sm} sm</span>
+            <span class="detal-dona">${ruchkaG[sm]} ta</span>
+          </div>
+        `;
+      });
+    }
+
+    groupedHtml += `</div>`;
+    groupedContainer.innerHTML = groupedHtml;
+  }
+
+  // 3. Vizual lentalar
   if (barsContainer) {
     barsContainer.innerHTML = '';
     const colors = ['#10B981', '#059669', '#34D399', '#0D3B2C', '#3B82F6', '#8B5CF6'];
@@ -690,7 +942,7 @@ function runCuttingLogic(showToastMsg = false) {
       groupHeader.className = 'profile-group-header';
       groupHeader.innerHTML = `
         <span>📌 ${g.nom}</span>
-        <span style="font-family:var(--font-mono); color:var(--brand-emerald);">${g.natija.jamiTayoqSoni} ta 6m tayoq (${g.natija.samaradorlikFoiz}%)</span>
+        <span style="font-family:var(--font-mono); color:var(--brand-emerald);">${g.natija.jamiTayoqSoni} ta ${pUz}sm tayoq (${g.natija.samaradorlikFoiz}%)</span>
       `;
       barsContainer.appendChild(groupHeader);
 
@@ -731,6 +983,50 @@ function runCuttingLogic(showToastMsg = false) {
     });
   }
 
+  // 4. Jami profil sarfi
+  if (usageCard && usageContainer) {
+    usageCard.style.display = 'block';
+    usageContainer.innerHTML = guruhlangan.guruhNatijalar.map(g => `
+      <div style="display:flex; justify-content:space-between; font-size:12px; padding:4px 0; border-bottom:1px solid var(--border-card);">
+        <span>${g.nom}:</span>
+        <b style="color:var(--brand-emerald);">${g.natija.jamiTayoqSoni} ta ${pUz}sm tayoq</b>
+      </div>
+    `).join('');
+  }
+
+  // 5. Tannarx (Sebestoimost)
+  if (tannarxCard) {
+    const seb = hisoblaSebestoimost(guruhlangan.guruhNatijalar, detallar, state.tannarxStavkalari);
+    tannarxCard.innerHTML = `
+      <div class="tannarx-summary-card">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+          <span style="font-size:13px; font-weight:800; letter-spacing:0.5px;">💵 TANNARX (SEBESTOIMOST)</span>
+          <span class="tannarx-total-val">${seb.jamiUsd} $</span>
+        </div>
+        <div class="tannarx-divider"></div>
+        ${seb.qismlar.map(q => `
+          <div class="tannarx-row">
+            <span>${q.nom} (${q.tayoqSoni} tayoq × $${q.stavka}/m)</span>
+            <b>${q.usd} $</b>
+          </div>
+        `).join('')}
+        <div class="tannarx-row">
+          <span>To'r (Setka) sarfi:</span>
+          <b>${seb.setkaUsd} $</b>
+        </div>
+        <div class="tannarx-row">
+          <span>Aksessuarlar (${detallar.reduce((a, b) => a + b.soni, 0)} dona):</span>
+          <b>${seb.aksessuarUsd} $</b>
+        </div>
+        <div class="tannarx-divider"></div>
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+          <span style="font-size:12px; opacity:0.85;">So'mda umumiy tannarx:</span>
+          <b style="font-size:15px; font-family:var(--font-mono); color:#34D399;">${formatSom(seb.jamiUsd * state.kurs)} so'm</b>
+        </div>
+      </div>
+    `;
+  }
+
   if (showToastMsg) {
     showToast(`Kesish xaritasi tuzildi: ${guruhlangan.umumiySamaradorlik}% samaradorlik!`, '✂️');
   }
@@ -742,6 +1038,8 @@ function renderCuttingScreen() {
     brendSel.value = state.cuttingSelectedBrendId || state.selectedBrendId || 'standart';
   }
   renderCuttingOrderRows();
+  renderQoldiqlar();
+  renderSaqlanganSizes();
   runCuttingLogic(false);
 }
 
@@ -952,7 +1250,7 @@ function renderSozlamalarScreen() {
         <div style="padding:10px 0;border-bottom:1px solid var(--border-card);display:flex;justify-content:space-between;align-items:center;">
           <div>
             <div style="font-weight:700;font-size:13px;">${p.nom}</div>
-            <div style="font-size:11px;color:var(--text-muted);">Chakana: $${p.chakanaNarx} • Diler: $${p.dilerNarx}</div>
+            <div style="font-size:11px;color:var(--text-muted);">Standart: $${p.chakanaNarx || p.narx} • Diler: $${p.dilerNarx || p.dillerNarx || p.narx}</div>
           </div>
         </div>
       `;
@@ -977,6 +1275,16 @@ function renderSozlamalarScreen() {
       `;
     });
   }
+
+  // Tannarx stavkalari inputlari
+  const tn = state.tannarxStavkalari;
+  if (document.getElementById('tnKatta')) document.getElementById('tnKatta').value = tn.katta;
+  if (document.getElementById('tnKattaRuchka')) document.getElementById('tnKattaRuchka').value = tn.kattaRuchka;
+  if (document.getElementById('tnKichkina')) document.getElementById('tnKichkina').value = tn.kichkina;
+  if (document.getElementById('tnRomRuchka')) document.getElementById('tnRomRuchka').value = tn.romRuchka;
+  if (document.getElementById('tnHaytek')) document.getElementById('tnHaytek').value = tn.haytek;
+  if (document.getElementById('tnSetka')) document.getElementById('tnSetka').value = tn.setka;
+  if (document.getElementById('tnAksessuar')) document.getElementById('tnAksessuar').value = tn.aksessuar;
 
   const tg = getTelegramConfig();
   const tokenInp = document.getElementById('cfgBotTokenInput');
@@ -1059,20 +1367,22 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 
-  // Yangi buyurtma
-  document.getElementById('tabChakanaMode')?.addEventListener('click', () => {
-    state.orderNarxTuri = 'chakana';
-    document.getElementById('tabChakanaMode').classList.add('active');
-    document.getElementById('tabDilerMode').classList.remove('active');
+  // Yangi buyurtma narx toifasi (Chakana/Standart vs Diler)
+  const handleTierSwitch = (tier) => {
+    state.orderNarxTuri = (tier === 'diller' || tier === 'diler') ? 'diler' : 'chakana';
+    document.querySelectorAll('#tierStandartBtn, #tabChakanaMode').forEach(b => {
+      b?.classList.toggle('active', state.orderNarxTuri === 'chakana');
+    });
+    document.querySelectorAll('#tierDillerBtn, #tabDilerMode').forEach(b => {
+      b?.classList.toggle('active', state.orderNarxTuri === 'diler');
+    });
     updateOrderSummary();
-  });
+  };
 
-  document.getElementById('tabDilerMode')?.addEventListener('click', () => {
-    state.orderNarxTuri = 'diler';
-    document.getElementById('tabDilerMode').classList.add('active');
-    document.getElementById('tabChakanaMode').classList.remove('active');
-    updateOrderSummary();
-  });
+  document.getElementById('tierStandartBtn')?.addEventListener('click', () => handleTierSwitch('standart'));
+  document.getElementById('tierDillerBtn')?.addEventListener('click', () => handleTierSwitch('diller'));
+  document.getElementById('tabChakanaMode')?.addEventListener('click', () => handleTierSwitch('standart'));
+  document.getElementById('tabDilerMode')?.addEventListener('click', () => handleTierSwitch('diller'));
 
   // Brend tanlash
   document.getElementById('orderBrendSelect')?.addEventListener('change', (e) => {
@@ -1201,6 +1511,57 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('btnRecalculateCut')?.addEventListener('click', () => runCuttingLogic(true));
   document.getElementById('btnPrintCuttingPdf')?.addEventListener('click', () => window.print());
 
+  // Kesish: Saqlangan o'lchamlar va Qoldiqlar hodisalari
+  document.getElementById('toggleSavedSizesBtn')?.addEventListener('click', () => {
+    const list = document.getElementById('savedCuttingSizesList');
+    const icon = document.getElementById('toggleSavedIcon');
+    if (!list) return;
+    const isHidden = list.style.display === 'none';
+    list.style.display = isHidden ? 'block' : 'none';
+    if (icon) icon.textContent = isHidden ? '▲' : '▼';
+    if (isHidden) renderSaqlanganSizes();
+  });
+
+  document.getElementById('btnSaveCuttingSizes')?.addEventListener('click', () => {
+    const validRows = (state.cuttingRows || []).filter(r => parseFloat(r.eni) > 0 && parseFloat(r.boy) > 0);
+    if (validRows.length === 0) {
+      showToast('Avval o\'lchamlarni kiriting!', '⚠️');
+      return;
+    }
+    const name = prompt('Ushbu o\'lchamlar to\'plamiga nom bering:', `O'lchamlar — ${new Date().toLocaleDateString('ru-RU')}`);
+    if (name) {
+      state.saqlanganOlchamlar.unshift({
+        id: Date.now(),
+        nom: name,
+        vaqt: new Date().toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' }),
+        olchamlar: JSON.parse(JSON.stringify(validRows))
+      });
+      localStorage.setItem('saqlangan_olchamlar', JSON.stringify(state.saqlanganOlchamlar));
+      renderSaqlanganSizes();
+      showToast('O\'lchamlar saqlandi!', '📁');
+    }
+  });
+
+  document.getElementById('toggleRemnantsBtn')?.addEventListener('click', () => {
+    const content = document.getElementById('remnantsAccordionContent');
+    const icon = document.getElementById('toggleRemnantsIcon');
+    if (!content) return;
+    const isHidden = content.style.display === 'none';
+    content.style.display = isHidden ? 'block' : 'none';
+    if (icon) icon.textContent = isHidden ? '▲' : '▼';
+    if (isHidden) renderQoldiqlar();
+  });
+
+  document.querySelectorAll('.btn-add-qoldiq').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const tur = btn.dataset.tur;
+      if (!state.qoldiqlar[tur]) state.qoldiqlar[tur] = [];
+      state.qoldiqlar[tur].push({ id: Date.now(), uzunlik: '', soni: 1 });
+      localStorage.setItem('prohisobchi_qoldiqlar', JSON.stringify(state.qoldiqlar));
+      renderQoldiqlar(tur);
+    });
+  });
+
   // Kassa modal va Telegram/CSV eksport
   document.getElementById('btnOpenKirimModal')?.addEventListener('click', () => openKassaModal('kirim'));
   document.getElementById('btnOpenChiqimModal')?.addEventListener('click', () => openKassaModal('chiqim'));
@@ -1309,6 +1670,44 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   document.getElementById('modalOrderBtnPrint')?.addEventListener('click', () => window.print());
+
+  // Buyurtmani to'g'ridan-to'g'ri Kesishga o'tkazish
+  document.getElementById('modalOrderBtnTransferCut')?.addEventListener('click', () => {
+    if (state.activeModalOrder && state.activeModalOrder.qatorlar) {
+      state.cuttingRows = state.activeModalOrder.qatorlar.map(q => {
+        const prof = state.profillar.find(p => p.id === q.profilId);
+        return {
+          id: Date.now() + Math.random(),
+          profilId: q.profilId || 1,
+          boy: q.boy,
+          eni: q.eni,
+          soni: q.soni || 1,
+          tur: q.tur || prof?.kesishTur || 'yonga'
+        };
+      });
+      state.cuttingSelectedBrendId = state.activeModalOrder.brendId || 'standart';
+      document.getElementById('modalOrderOverlay')?.classList.remove('active');
+      navigateToScreen('kesish');
+      renderCuttingScreen();
+      showToast('O\'lchamlar kesish bo\'limiga o\'tkazildi!', '✂️');
+    }
+  });
+
+  // Tannarx stavkalarini saqlash
+  document.getElementById('btnSaveTannarxSettings')?.addEventListener('click', () => {
+    state.tannarxStavkalari = {
+      katta: parseFloat(document.getElementById('tnKatta')?.value) || 2.66,
+      kattaRuchka: parseFloat(document.getElementById('tnKattaRuchka')?.value) || 2.66,
+      kichkina: parseFloat(document.getElementById('tnKichkina')?.value) || 2.16,
+      romRuchka: parseFloat(document.getElementById('tnRomRuchka')?.value) || 2.16,
+      haytek: parseFloat(document.getElementById('tnHaytek')?.value) || 1.25,
+      setka: parseFloat(document.getElementById('tnSetka')?.value) || 0.0004,
+      aksessuar: parseFloat(document.getElementById('tnAksessuar')?.value) || 3
+    };
+    saqlaTannarxStavkalari(state.tannarxStavkalari);
+    showToast('Tannarx stavkalari saqlandi!', '💾');
+    runCuttingLogic(false);
+  });
 
   // Modal overlay fonini bosganda yopish
   document.querySelectorAll('.modal-overlay').forEach(overlay => {
