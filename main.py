@@ -53,15 +53,52 @@ async def create_web_application():
             body = await request.json()
         except Exception:
             body = {}
-        license_key = body.get("license_key", "")
+        license_key = (body.get("license_key") or "").strip().upper()
         telegram_id = body.get("telegram_id")
+        if telegram_id:
+            try:
+                telegram_id = int(telegram_id)
+            except (ValueError, TypeError):
+                pass
+
+        # Admin tekshiruvi: Telegram ID admin bo'lsa yoki Admin Master kodi kiritilsa kod so'ramaydi
+        is_admin_user = (telegram_id and telegram_id in config.ADMIN_IDS) or (license_key in ["ADMIN-PRO", "ADMIN-ROOT", "PRO-ADMIN"])
+        if is_admin_user:
+            admin_id = telegram_id or (config.ADMIN_IDS[0] if config.ADMIN_IDS else "superadmin")
+            return web.json_response({
+                "valid": True,
+                "status": "admin",
+                "is_admin": True,
+                "days_left": 9999,
+                "message": "Bosh Administrator (Cheksiz ruxsatnoma)",
+                "tenant": {
+                    "tenant_id": f"admin_{admin_id}",
+                    "name": "Bosh Administrator",
+                    "license_key": "ADMIN-PRO",
+                    "role": "admin",
+                    "expires_at": "2099-12-31 23:59:59"
+                }
+            }, headers={"Access-Control-Allow-Origin": "*"})
+
         result = database.verify_license(license_key, telegram_id)
         return web.json_response(result, headers={"Access-Control-Allow-Origin": "*"})
 
     # REST API: Mijoz ma'lumotlarini yuklab olish
     async def api_tenant_get_data(request):
-        license_key = request.query.get("license_key", "")
+        license_key = (request.query.get("license_key") or "").strip().upper()
         data_key = request.query.get("data_key")
+
+        # Admin tekshiruvi: Admin uchun alohida cheksiz profil
+        if license_key in ["ADMIN-PRO", "ADMIN-ROOT", "PRO-ADMIN"]:
+            admin_id = config.ADMIN_IDS[0] if config.ADMIN_IDS else "superadmin"
+            tenant_id = f"admin_{admin_id}"
+            data = database.get_tenant_data(tenant_id, data_key)
+            return web.json_response({
+                "ok": True,
+                "tenant": {"tenant_id": tenant_id, "name": "Bosh Administrator", "role": "admin"},
+                "data": data
+            }, headers={"Access-Control-Allow-Origin": "*"})
+
         v = database.verify_license(license_key)
         if not v.get("valid"):
             return web.json_response({"ok": False, "error": v.get("message")}, status=403, headers={"Access-Control-Allow-Origin": "*"})
@@ -77,10 +114,17 @@ async def create_web_application():
         except Exception:
             return web.json_response({"ok": False, "error": "Noto'g'ri JSON formati"}, status=400, headers={"Access-Control-Allow-Origin": "*"})
             
-        license_key = body.get("license_key", "")
+        license_key = (body.get("license_key") or "").strip().upper()
         data_key = body.get("data_key", "")
         content = body.get("content")
-        
+
+        # Admin tekshiruvi: Admin uchun saqlash
+        if license_key in ["ADMIN-PRO", "ADMIN-ROOT", "PRO-ADMIN"]:
+            admin_id = config.ADMIN_IDS[0] if config.ADMIN_IDS else "superadmin"
+            tenant_id = f"admin_{admin_id}"
+            database.save_tenant_data(tenant_id, data_key, content)
+            return web.json_response({"ok": True, "synced_key": data_key}, headers={"Access-Control-Allow-Origin": "*"})
+
         v = database.verify_license(license_key)
         if not v.get("valid"):
             return web.json_response({"ok": False, "error": v.get("message")}, status=403, headers={"Access-Control-Allow-Origin": "*"})

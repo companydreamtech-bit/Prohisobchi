@@ -1403,24 +1403,34 @@ function initLicenseSystem() {
 
   let savedKey = localStorage.getItem('prohisobchi_license_key');
 
-  if (!savedKey) {
-    licenseOverlay?.classList.add('active');
-  } else {
-    verifyTenantLicense(savedKey).then(check => {
-      if (check.valid) {
-        if (check.tenant && tenantSub) {
+  // Avtomatik tekshirish (Admin Telegram orqali ochganda darhol kodsiz kiradi)
+  verifyTenantLicense(savedKey || '').then(check => {
+    if (check.valid) {
+      licenseOverlay?.classList.remove('active');
+      if (check.is_admin) {
+        localStorage.setItem('prohisobchi_license_key', 'ADMIN-PRO');
+        if (tenantSub) {
+          tenantSub.innerHTML = `👑 <b>Administrator</b> • <span style="color:#60A5FA; font-weight:700;">Cheksiz PRO</span>`;
+        }
+        fetchTenantDataFromCloud('ADMIN-PRO');
+      } else if (check.tenant) {
+        if (tenantSub) {
           tenantSub.innerHTML = `<b>${check.tenant.name}</b> • <span style="color:#34D399; font-weight:700;">⏰ ${check.days_left} kun</span>`;
-          fetchTenantDataFromCloud(savedKey);
         }
-      } else {
-        licenseOverlay?.classList.add('active');
-        if (errorEl) {
-          errorEl.textContent = check.message || 'Obuna muddati tugagan!';
-          errorEl.style.display = 'block';
-        }
+        fetchTenantDataFromCloud(savedKey || check.tenant.license_key);
       }
-    });
-  }
+    } else {
+      licenseOverlay?.classList.add('active');
+      if (savedKey && errorEl) {
+        errorEl.textContent = check.message || 'Obuna muddati tugagan!';
+        errorEl.style.display = 'block';
+      }
+    }
+  }).catch(() => {
+    if (!savedKey) {
+      licenseOverlay?.classList.add('active');
+    }
+  });
 
   submitBtn?.addEventListener('click', async () => {
     const entered = keyInput?.value?.trim().toUpperCase();
@@ -1438,13 +1448,18 @@ function initLicenseSystem() {
     try {
       const res = await verifyTenantLicense(entered);
       if (res.valid) {
-        localStorage.setItem('prohisobchi_license_key', entered);
+        const activeKey = res.is_admin ? 'ADMIN-PRO' : entered;
+        localStorage.setItem('prohisobchi_license_key', activeKey);
         licenseOverlay?.classList.remove('active');
-        if (tenantSub && res.tenant) {
-          tenantSub.innerHTML = `<b>${res.tenant.name}</b> • <span style="color:#34D399; font-weight:700;">⏰ ${res.days_left} kun</span>`;
+        if (tenantSub) {
+          if (res.is_admin) {
+            tenantSub.innerHTML = `👑 <b>Administrator</b> • <span style="color:#60A5FA; font-weight:700;">Cheksiz PRO</span>`;
+          } else if (res.tenant) {
+            tenantSub.innerHTML = `<b>${res.tenant.name}</b> • <span style="color:#34D399; font-weight:700;">⏰ ${res.days_left} kun</span>`;
+          }
         }
-        await fetchTenantDataFromCloud(entered);
-        showToast(`Xush kelibsiz! ${res.tenant?.name || ''} faollashtirildi.`, '🎉');
+        await fetchTenantDataFromCloud(activeKey);
+        showToast(res.is_admin ? '👑 Administrator tizimga kirdi!' : `Xush kelibsiz! ${res.tenant?.name || ''} faollashtirildi.`, '🎉');
       } else {
         if (errorEl) {
           errorEl.textContent = res.message || 'Noto\'g\'ri litsenziya kaliti!';
