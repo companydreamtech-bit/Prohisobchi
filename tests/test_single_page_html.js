@@ -42,11 +42,11 @@ describe('B. Narxlash va 1 m² Minimal Qoidasi (Buyurtma bo\'limi)', () => {
   function calcM2(boy, eni) { return (parseFloat(boy) || 0) * (parseFloat(eni) || 0) / 10000; }
   
   const PROFILLAR = [
-    { id: 1, nom: 'Set Pro Katta',  narx: 28, dillerNarx: 25, minNarx: false, kesishTur: 'eshik'  },
-    { id: 2, nom: 'Set Pro Kichik', narx: 23, dillerNarx: 20, minNarx: true,  kesishTur: 'pastga' },
-    { id: 3, nom: 'Set Pro Haytek', narx: 15, dillerNarx: 13, minNarx: false, kesishTur: 'haytek' },
-    { id: 5, nom: 'Kichkina yonga', narx: 25, dillerNarx: 22, minNarx: true,  kesishTur: 'yonga'  },
-    { id: 4, nom: 'Oddiy Setka',    narx: 10, dillerNarx: 8,  minNarx: false, kesishTur: 'yonga'  }
+    { id: 1, nom: 'Eshik (Set Pro Katta)', narx: 40, dillerNarx: 28, minNarx: false, kesishTur: 'eshik' },
+    { id: 2, nom: 'Kichkina profil pastga', narx: 32, dillerNarx: 23, minNarx: true,  kesishTur: 'pastga' },
+    { id: 5, nom: 'Kichkina profil yonga', narx: 33, dillerNarx: 25, minNarx: true,  kesishTur: 'yonga' },
+    { id: 3, nom: 'Haytek profil', narx: 700, dillerNarx: 390, minNarx: false, kesishTur: 'haytek', isPerimeter: true },
+    { id: 4, nom: 'Oddiy Setka',    narx: 15, dillerNarx: 10, minNarx: false, kesishTur: 'yonga' }
   ];
 
   function hisoblaNarx(list, tier, kurs = 12900) {
@@ -57,7 +57,10 @@ describe('B. Narxlash va 1 m² Minimal Qoidasi (Buyurtma bo\'limi)', () => {
       const soni = parseInt(q.soni) || 1;
       const bitta = calcM2(q.boy, q.eni);
       totalM2 += bitta * soni;
-      if (p.minNarx) {
+      if (p.isPerimeter || p.kesishTur === 'haytek') {
+        const som = (parseFloat(q.boy) + parseFloat(q.eni)) * pr * soni;
+        totalUsd += som / kurs;
+      } else if (p.minNarx) {
         totalUsd += (bitta <= 1 ? pr : bitta * pr) * soni;
       } else {
         totalUsd += bitta * soni * pr;
@@ -66,34 +69,36 @@ describe('B. Narxlash va 1 m² Minimal Qoidasi (Buyurtma bo\'limi)', () => {
     return { m2: totalM2, usd: totalUsd, som: totalUsd * kurs };
   }
 
-  it('Set Pro Kichik (minNarx: true) 0.5 m² bo\'lganda ham 1 m² (23$) hisoblanishi kerak', () => {
+  it('Kichkina profil pastga (minNarx: true) 0.5 m² bo\'lganda ham 1 m² (Standart 32$) hisoblanishi kerak', () => {
     // 50 sm x 100 sm = 0.5 m²
     const res = hisoblaNarx([{ profilId: 2, boy: '100', eni: '50', soni: '1' }], 'standart');
     assert.equal(res.m2, 0.5);
-    assert.equal(res.usd, 23); // Min 1m²
-    assert.equal(res.som, 23 * 12900);
+    assert.equal(res.usd, 32); // Min 1m²
+    assert.equal(res.som, 32 * 12900);
   });
 
-  it('Set Pro Kichik 1.5 m² bo\'lganda kvadratiga ko\'paytirilishi kerak (1.5 * 23 = 34.5$)', () => {
+  it('Kichkina profil yonga 1.5 m² bo\'lganda kvadratiga ko\'paytirilishi kerak (1.5 * 33 = 49.5$)', () => {
     // 100 sm x 150 sm = 1.5 m²
-    const res = hisoblaNarx([{ profilId: 2, boy: '150', eni: '100', soni: '1' }], 'standart');
+    const res = hisoblaNarx([{ profilId: 5, boy: '150', eni: '100', soni: '1' }], 'standart');
     assert.equal(res.m2, 1.5);
-    assert.equal(res.usd, 34.5);
+    assert.equal(res.usd, 49.5);
   });
 
-  it('Set Pro Katta (minNarx: false) 0.5 m² bo\'lganda aniq kvadratiga ko\'payishi kerak (0.5 * 28 = 14$)', () => {
+  it('Eshik (minNarx: false) 0.5 m² bo\'lganda aniq kvadratiga ko\'payishi kerak (0.5 * 40 = 20$)', () => {
     const res = hisoblaNarx([{ profilId: 1, boy: '100', eni: '50', soni: '1' }], 'standart');
     assert.equal(res.m2, 0.5);
-    assert.equal(res.usd, 14);
+    assert.equal(res.usd, 20);
   });
 
-  it('Diller narxi tanlanganda narxlar diller stavkasida hisoblanishi kerak', () => {
-    // Set Pro Katta: 25$, Set Pro Kichik: 20$
+  it('Diller narxi tanlanganda narxlar diller stavkasida hisoblanishi kerak (Katta: 28$, Kichik pastga: 23$, Kichik yonga: 25$)', () => {
     const resKatta = hisoblaNarx([{ profilId: 1, boy: '100', eni: '100', soni: '1' }], 'diller');
-    assert.equal(resKatta.usd, 25);
+    assert.equal(resKatta.usd, 28);
 
-    const resKichik = hisoblaNarx([{ profilId: 2, boy: '100', eni: '50', soni: '1' }], 'diller');
-    assert.equal(resKichik.usd, 20); // Min 1m² diller narxi
+    const resPastga = hisoblaNarx([{ profilId: 2, boy: '100', eni: '50', soni: '1' }], 'diller');
+    assert.equal(resPastga.usd, 23); // Min 1m² diller narxi
+
+    const resYonga = hisoblaNarx([{ profilId: 5, boy: '100', eni: '50', soni: '1' }], 'diller');
+    assert.equal(resYonga.usd, 25); // Min 1m² diller narxi
   });
 });
 
@@ -112,8 +117,8 @@ describe('C. Kesish Bo\'limidagi 7 Xil Konstruksiya Formulalari', () => {
       rBoy = boy + 2;
       rEn = eni;
       ruchka = eni - 0.8;
-      setkaUz = rBoy / 2;
-      setkaDona = eni + 2;
+      setkaUz = eni + 2;
+      setkaDona = rBoy / 2;
     } else if (tur === 'eshik') {
       rBoy = boy;
       rEn = eni + 4;
@@ -168,8 +173,8 @@ describe('C. Kesish Bo\'limidagi 7 Xil Konstruksiya Formulalari', () => {
     assert.equal(d.rBoy, 142);
     assert.equal(d.rEn, 60);
     assert.equal(d.ruchka, 59.2);
-    assert.equal(d.setkaUz, 71);
-    assert.equal(d.setkaDona, 62);
+    assert.equal(d.setkaUz, 62);
+    assert.equal(d.setkaDona, 71);
   });
 
   it('3. Eshik formulasi to\'g\'ri ishlashi kerak', () => {

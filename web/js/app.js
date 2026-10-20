@@ -63,12 +63,29 @@ import {
 // ==========================================================================
 
 export const DEFAULT_PROFILLAR = [
-  { id: 1, nom: 'Set Pro Katta', chakanaNarx: 28, dilerNarx: 25, narx: 28, dillerNarx: 25, minNarx: false, tur: 'katta', kesishTur: 'eshik' },
-  { id: 2, nom: 'Set Pro Kichik', chakanaNarx: 23, dilerNarx: 20, narx: 23, dillerNarx: 20, minNarx: true, tur: 'kichik', kesishTur: 'pastga' },
-  { id: 3, nom: 'Set Pro Haytek', chakanaNarx: 15, dilerNarx: 13, narx: 15, dillerNarx: 13, minNarx: false, tur: 'haytek', kesishTur: 'haytek' },
-  { id: 5, nom: 'Kichkina yonga', chakanaNarx: 25, dilerNarx: 22, narx: 25, dillerNarx: 22, minNarx: true, tur: 'kichik', kesishTur: 'yonga' },
-  { id: 4, nom: 'Oddiy Setka', chakanaNarx: 10, dilerNarx: 8, narx: 10, dillerNarx: 8, minNarx: false, tur: 'kichik', kesishTur: 'yonga' }
+  { id: 1, nom: 'Eshik (Set Pro Katta)', chakanaNarx: 40, dilerNarx: 28, narx: 40, dillerNarx: 28, minNarx: false, tur: 'katta', kesishTur: 'eshik' },
+  { id: 2, nom: 'Kichkina profil pastga', chakanaNarx: 32, dilerNarx: 23, narx: 32, dillerNarx: 23, minNarx: true, tur: 'kichik', kesishTur: 'pastga' },
+  { id: 5, nom: 'Kichkina profil yonga', chakanaNarx: 33, dilerNarx: 25, narx: 33, dillerNarx: 25, minNarx: true, tur: 'kichik', kesishTur: 'yonga' },
+  { id: 3, nom: 'Haytek profil', chakanaNarx: 700, dilerNarx: 390, narx: 700, dillerNarx: 390, minNarx: false, tur: 'haytek', kesishTur: 'haytek', isPerimeter: true },
+  { id: 4, nom: 'Oddiy Setka', chakanaNarx: 15, dilerNarx: 10, narx: 15, dillerNarx: 10, minNarx: false, tur: 'kichik', kesishTur: 'yonga' }
 ];
+
+export function getSyncedProfillar(storagePrefix) {
+  const version = '2026_rates_v3';
+  const savedVer = localStorage.getItem('prohisobchi_profillar_ver');
+  if (savedVer !== version) {
+    localStorage.setItem('prohisobchi_profillar_ver', version);
+    localStorage.setItem(storagePrefix + 'profillar', JSON.stringify(DEFAULT_PROFILLAR));
+    localStorage.setItem('prohisobchi_profillar', JSON.stringify(DEFAULT_PROFILLAR));
+    return DEFAULT_PROFILLAR;
+  }
+  try {
+    const saved = localStorage.getItem(storagePrefix + 'profillar') || localStorage.getItem('prohisobchi_profillar');
+    return saved ? JSON.parse(saved) : DEFAULT_PROFILLAR;
+  } catch (e) {
+    return DEFAULT_PROFILLAR;
+  }
+}
 
 // Telegram foydalanuvchi ID si orqali ko'p foydalanuvchili xotira
 const telegramUserId = window.Telegram?.WebApp?.initDataUnsafe?.user?.id || 'default';
@@ -78,12 +95,12 @@ let state = {
   kurs: parseFloat(localStorage.getItem('prohisobchi_kurs')) || 12900,
   currentScreen: 'home',
   theme: localStorage.getItem('prohisobchi_theme') || 'light',
-  profillar: JSON.parse(localStorage.getItem(storagePrefix + 'profillar')) || DEFAULT_PROFILLAR,
+  profillar: getSyncedProfillar(storagePrefix),
   brendlar: getProfilBrendlari(),
   selectedBrendId: 'standart',
   buyurtmalar: JSON.parse(localStorage.getItem(storagePrefix + 'buyurtmalar')) || [],
   orderRows: [
-    { id: 1, profilId: 1, eni: '', boy: '', soni: 1, tur: 'yonga' }
+    { id: 1, profilId: 2, eni: '', boy: '', soni: 1, tur: 'pastga' }
   ],
   cuttingRows: [],
   cuttingSelectedBrendId: 'standart',
@@ -91,7 +108,7 @@ let state = {
   orderTolovTuri: 'Naqd',
   nextRowId: 2,
   qc: {
-    profilTur: 'kichik',
+    profilTur: 'pastga',
     narxTuri: 'chakana',
     eni: '',
     boy: '',
@@ -286,6 +303,10 @@ function renderOrderRows() {
     box.querySelectorAll('.konstruksiya-chip-btn').forEach(btn => {
       btn.addEventListener('click', () => {
         row.tur = btn.dataset.tur;
+        if (row.tur === 'pastga') row.profilId = 2;
+        else if (row.tur === 'yonga') row.profilId = 5;
+        else if (['eshik', 'tayyor', 'evro', 'tayyor_evro'].includes(row.tur)) row.profilId = 1;
+        else if (row.tur === 'haytek') row.profilId = 3;
         renderOrderRows();
         updateOrderSummary();
       });
@@ -880,7 +901,7 @@ function runCuttingLogic(showToastMsg = false) {
       let info = `<b>${d.idx + 1}-to'r: ${d.eni} × ${d.boy} sm [${d.turNom}] (${d.soni} dona)</b><br>`;
       info += `<span style="color:var(--text-secondary);">Ramka: ${d.ramkaBoy} × ${d.ramkaEn} sm</span>`;
       if (d.hasRuchka && d.ruchka > 0) info += ` • <span style="color:var(--text-secondary);">Ruchka: ${d.ruchka} sm</span>`;
-      if (d.setkaUz > 0) info += ` • <span style="color:var(--text-secondary);">Setka: ${d.setkaUz}sm (${Math.ceil(d.setkaEnDona)} dona)</span>`;
+      if (d.setkaUz > 0) info += ` • <span style="color:var(--text-secondary);">Setka: ${d.setkaUz}sm (${d.setkaEnDona} dona)</span>`;
       info += ` • <span style="color:var(--text-secondary);">Ip: ${d.ip} sm</span>`;
       row.innerHTML = info;
       detailsContainer.appendChild(row);
@@ -1184,18 +1205,32 @@ function updateQuickCalc() {
   const h = parseFloat(document.getElementById('qcInputBoy')?.value) || 0;
   const soni = state.qc.soni;
 
-  const profil = state.profillar.find(p => p.tur === state.qc.profilTur) || state.profillar[0];
-  const narxM2 = state.qc.narxTuri === 'diler' ? (profil.dilerNarx || profil.narx) : (profil.chakanaNarx || profil.narx);
+  let tur = state.qc.profilTur || 'pastga';
+  let profilId = 2;
+  if (tur === 'yonga') {
+    profilId = 5;
+  } else if (tur === 'katta' || tur === 'eshik') {
+    tur = 'eshik';
+    profilId = 1;
+  } else if (tur === 'haytek') {
+    profilId = 3;
+  } else {
+    tur = 'pastga';
+    profilId = 2;
+  }
 
-  const bittaM2 = hisoblaM2(w, h);
-  const totalM2 = bittaM2 * soni;
-  const totalUsd = totalM2 * narxM2;
-  const totalSom = totalUsd * state.kurs;
+  const calc = hisoblaBuyurtmaNarxi(
+    [{ eni: w, boy: h, soni: soni, profilId: profilId, tur: tur }],
+    state.profillar,
+    state.kurs,
+    state.qc.narxTuri,
+    true
+  );
 
   document.getElementById('qcCounterVal').textContent = soni;
-  document.getElementById('qcResultM2').textContent = `${totalM2.toFixed(2)} m²`;
-  document.getElementById('qcResultUsd').textContent = `${totalUsd.toFixed(2)} $`;
-  document.getElementById('qcResultSom').textContent = `${formatSom(totalSom)} so'm`;
+  document.getElementById('qcResultM2').textContent = `${calc.jamiM2.toFixed(2)} m²`;
+  document.getElementById('qcResultUsd').textContent = `${calc.jamiUsd.toFixed(2)} $`;
+  document.getElementById('qcResultSom').textContent = `${formatSom(calc.jamiSom)} so'm`;
 }
 
 // ==========================================================================
@@ -1247,11 +1282,14 @@ function renderSozlamalarScreen() {
   if (tbl) {
     tbl.innerHTML = '';
     state.profillar.forEach(p => {
+      const narxMatni = (p.isPerimeter || p.tur === 'haytek')
+        ? `Standart: ${p.chakanaNarx || p.narx} so'm/sm • Diler: ${p.dilerNarx || p.dillerNarx} so'm/sm`
+        : `Standart: $${p.chakanaNarx || p.narx} • Diler: $${p.dilerNarx || p.dillerNarx || p.narx}`;
       tbl.innerHTML += `
         <div style="padding:10px 0;border-bottom:1px solid var(--border-card);display:flex;justify-content:space-between;align-items:center;">
           <div>
             <div style="font-weight:700;font-size:13px;">${p.nom}</div>
-            <div style="font-size:11px;color:var(--text-muted);">Standart: $${p.chakanaNarx || p.narx} • Diler: $${p.dilerNarx || p.dillerNarx || p.narx}</div>
+            <div style="font-size:11px;color:var(--text-muted);">${narxMatni}</div>
           </div>
         </div>
       `;

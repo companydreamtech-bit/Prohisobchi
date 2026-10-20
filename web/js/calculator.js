@@ -68,8 +68,8 @@ export const KONSTRUKSIYA_TURLARI = {
       const ramkaBoy = h + enDopusk;
       const ramkaEn = w;
       const ruchka = w + ruchkaDop;
-      const setkaBoy = ramkaBoy / 2;
-      const setkaEnDona = w + enDopusk;
+      const setkaBoy = w + enDopusk;      // Setka uzunligi (sm): Eni + 2 (masalan: 49 + 2 = 51 sm)
+      const setkaEnDona = ramkaBoy / 2;  // Setka donasi (ta): (Bo'yi + 2) / 2 (masalan: (147 + 2) / 2 = 74.5 dona)
       const ip = h + w + 20;
       return {
         ramkaBoy,
@@ -243,22 +243,57 @@ export function hisoblaBuyurtmaNarxi(qatorlar, profillar, kurs = 12900, narxTuri
     const eni = parseFloat(q.eni) || 0;
     const boy = parseFloat(q.boy) || 0;
     const soni = parseInt(q.soni) || 1;
-    const profil = profillar.find(p => p.id === q.profilId) || profillar[0];
+    // Profilni q.tur yoki q.profilId orqali topish
+    let profil = null;
+    if (q.tur === 'pastga') {
+      profil = profillar.find(p => p.kesishTur === 'pastga' || p.id === 2);
+    } else if (q.tur === 'yonga') {
+      profil = profillar.find(p => p.kesishTur === 'yonga' || p.id === 5);
+    } else if (['eshik', 'tayyor', 'evro', 'tayyor_evro'].includes(q.tur)) {
+      profil = profillar.find(p => p.tur === 'katta' || p.kesishTur === 'eshik' || p.id === 1);
+    } else if (q.tur === 'haytek') {
+      profil = profillar.find(p => p.tur === 'haytek' || p.kesishTur === 'haytek' || p.id === 3);
+    }
+    if (!profil) {
+      profil = profillar.find(p => p.id === q.profilId) || profillar[0];
+    }
 
     const haqiqiyM2 = hisoblaM2(eni, boy);
     let hisoblanganBittaM2 = haqiqiyM2;
+    let qatorM2 = haqiqiyM2 * soni;
+    let qatorHisoblanganM2 = haqiqiyM2 * soni;
+    let metrKvadratNarxiUsd = 0;
+    let qatorUsd = 0;
 
-    if (min1m2Qoidasi && (profil.minNarx !== false) && haqiqiyM2 > 0) {
-      hisoblanganBittaM2 = Math.max(1.0, haqiqiyM2);
+    // 4. HAYTEK PROFILI: Kvadratga o'lchanmaydi! Perimetr (sm) bo'yicha hisoblanadi.
+    // Diler: 1 sm = 390 so'm | Standart: 1 sm = 700 so'm (Eni + Bo'yi uchun)
+    if (profil.tur === 'haytek' || q.tur === 'haytek' || profil.isPerimeter) {
+      const smStavka = narxTuri === 'diler' 
+        ? (profil.dilerNarx ?? profil.dillerNarx ?? 390) 
+        : (profil.chakanaNarx ?? profil.narx ?? 700);
+      
+      const qatorSom = (eni + boy) * smStavka * soni;
+      qatorUsd = kurs > 0 ? (qatorSom / kurs) : 0;
+      metrKvadratNarxiUsd = smStavka;
+      hisoblanganBittaM2 = haqiqiyM2;
+      qatorHisoblanganM2 = haqiqiyM2 * soni;
+    } else {
+      // 2 & 3. ESHIK VA KICHIKNA PROFILLAR:
+      // Eshik (minNarx=false): Minimal cheklov yo'q, to'g'ridan-to'g'ri chiqqan kvadratiga ko'payadi (m² * 28$ yoki 40$).
+      // Kichkina profillar (minNarx=true): 1 m² gacha bo'lsa 1 m² (23$/25$ yoki 32$/33$). 1 m² dan oshsa aniq kvadratiga ko'payadi.
+      if (min1m2Qoidasi && (profil.minNarx !== false) && haqiqiyM2 > 0) {
+        hisoblanganBittaM2 = Math.max(1.0, haqiqiyM2);
+      } else {
+        hisoblanganBittaM2 = haqiqiyM2;
+      }
+
+      metrKvadratNarxiUsd = narxTuri === 'diler' 
+        ? (profil.dilerNarx ?? profil.dillerNarx ?? profil.narx ?? 0)
+        : (profil.chakanaNarx ?? profil.narx ?? 0);
+
+      qatorHisoblanganM2 = hisoblanganBittaM2 * soni;
+      qatorUsd = qatorHisoblanganM2 * metrKvadratNarxiUsd;
     }
-
-    const metrKvadratNarxiUsd = narxTuri === 'diler' 
-      ? (profil.dilerNarx ?? profil.dillerNarx ?? profil.narx ?? 0)
-      : (profil.chakanaNarx ?? profil.narx ?? 0);
-
-    const qatorM2 = haqiqiyM2 * soni;
-    const qatorHisoblanganM2 = hisoblanganBittaM2 * soni;
-    const qatorUsd = qatorHisoblanganM2 * metrKvadratNarxiUsd;
 
     jamiM2 += qatorM2;
     jamiHisoblanganM2 += qatorHisoblanganM2;

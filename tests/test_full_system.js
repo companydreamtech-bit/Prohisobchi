@@ -110,33 +110,52 @@ describe('🚀 1. KONSTRUKSIYA VA HISOB-KITOB FORMULALARI (7 XIL TUR)', () => {
 
 describe('💰 2. NARXLASH, KVADRATURA VA MINIMAL 1m² QOIDASI', () => {
   const profillar = [
-    { id: 1, nom: 'Set Pro Katta', chakanaNarx: 28, dilerNarx: 24, minNarx: false, tur: 'katta' },
-    { id: 2, nom: 'Set Pro Kichik', chakanaNarx: 23, dilerNarx: 20, minNarx: true, tur: 'kichik' }
+    { id: 1, nom: 'Eshik (Set Pro Katta)', chakanaNarx: 40, dilerNarx: 28, minNarx: false, tur: 'katta', kesishTur: 'eshik' },
+    { id: 2, nom: 'Kichkina profil pastga', chakanaNarx: 32, dilerNarx: 23, minNarx: true, tur: 'kichik', kesishTur: 'pastga' },
+    { id: 5, nom: 'Kichkina profil yonga', chakanaNarx: 33, dilerNarx: 25, minNarx: true, tur: 'kichik', kesishTur: 'yonga' },
+    { id: 3, nom: 'Haytek profil', chakanaNarx: 700, dilerNarx: 390, minNarx: false, tur: 'haytek', kesishTur: 'haytek' }
   ];
   const kurs = 12800;
 
   it('2.1 MinNarx=true bo\'lsa va maydon 0.5 m² bo\'lsa, 1 m² narxi olinishi kerak', () => {
-    const qatorlar = [{ id: 1, profilId: 2, eni: 50, boy: 100, soni: 1, tur: 'yonga' }];
+    // Kichkina profil pastga: Standart 32$, Diler 23$
+    const qatorlar = [{ id: 1, profilId: 2, eni: 50, boy: 100, soni: 1, tur: 'pastga' }];
     const narx = hisoblaBuyurtmaNarxi(qatorlar, profillar, kurs, 'chakana', true);
     assert.equal(narx.jamiM2, 0.5);
     assert.equal(narx.jamiHisoblanganM2, 1.0);
-    assert.equal(narx.jamiUsd, 23.0);
-    assert.equal(narx.jamiSom, 23.0 * kurs);
+    assert.equal(narx.jamiUsd, 32.0); // Standart min 1m² = 32$
+    assert.equal(narx.jamiSom, 32.0 * kurs);
   });
 
-  it('2.2 MinNarx=false bo\'lsa, aniq 0.5 m² narxi olinishi kerak', () => {
+  it('2.2 MinNarx=false bo\'lsa, aniq 0.5 m² narxi olinishi kerak (0.5 * 40 = 20$)', () => {
+    // Eshik: Standart 40$, Diler 28$
     const qatorlar = [{ id: 1, profilId: 1, eni: 50, boy: 100, soni: 1, tur: 'eshik' }];
     const narx = hisoblaBuyurtmaNarxi(qatorlar, profillar, kurs, 'chakana', true);
     assert.equal(narx.jamiM2, 0.5);
     assert.equal(narx.jamiHisoblanganM2, 0.5);
-    assert.equal(narx.jamiUsd, 14.0); // 0.5 * 28 = 14$
+    assert.equal(narx.jamiUsd, 20.0); // 0.5 * 40 = 20$
   });
 
-  it('2.3 Diler narxi rejimida diler stavkasida hisoblanishi kerak', () => {
-    const qatorlar = [{ id: 1, profilId: 2, eni: 50, boy: 100, soni: 1, tur: 'yonga' }];
+  it('2.3 Diler narxi rejimida diler stavkasida hisoblanishi kerak (Kichik pastga 23$, Eshik 14$)', () => {
+    const qatorlar = [{ id: 1, profilId: 2, eni: 50, boy: 100, soni: 1, tur: 'pastga' }];
     const narx = hisoblaBuyurtmaNarxi(qatorlar, profillar, kurs, 'diler', true);
-    assert.equal(narx.jamiUsd, 20.0); // 1m² * 20$
-    assert.equal(narx.jamiSom, 20.0 * kurs);
+    assert.equal(narx.jamiUsd, 23.0); // 1m² * 23$
+    assert.equal(narx.jamiSom, 23.0 * kurs);
+
+    const qatorlarEshik = [{ id: 2, profilId: 1, eni: 50, boy: 100, soni: 1, tur: 'eshik' }];
+    const narxEshik = hisoblaBuyurtmaNarxi(qatorlarEshik, profillar, kurs, 'diler', true);
+    assert.equal(narxEshik.jamiUsd, 14.0); // 0.5 * 28 = 14$
+  });
+
+  it('2.4 Haytek profil perimetr santimetri bo\'yicha hisoblanishi kerak', () => {
+    // 50 x 150 sm, Diler: (50+150)*390 = 78,000 so'm
+    const qatorlar = [{ id: 1, profilId: 3, eni: 50, boy: 150, soni: 1, tur: 'haytek' }];
+    const narxDiler = hisoblaBuyurtmaNarxi(qatorlar, profillar, kurs, 'diler', true);
+    assert.equal(narxDiler.jamiSom, 78000);
+
+    // Standart: (50+150)*700 = 140,000 so'm
+    const narxStandart = hisoblaBuyurtmaNarxi(qatorlar, profillar, kurs, 'chakana', true);
+    assert.equal(narxStandart.jamiSom, 140000);
   });
 
   it('2.4 formatSom: summalarni chiroyli probel bilan formatlashi kerak', () => {
