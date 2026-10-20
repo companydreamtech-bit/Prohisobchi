@@ -45,7 +45,7 @@ describe('B. Narxlash va 1 m² Minimal Qoidasi (Buyurtma bo\'limi)', () => {
     { id: 1, nom: 'Eshik (Set Pro Katta)', narx: 40, dillerNarx: 28, minNarx: false, kesishTur: 'eshik' },
     { id: 2, nom: 'Kichkina profil pastga', narx: 32, dillerNarx: 23, minNarx: true,  kesishTur: 'pastga' },
     { id: 5, nom: 'Kichkina profil yonga', narx: 33, dillerNarx: 25, minNarx: true,  kesishTur: 'yonga' },
-    { id: 3, nom: 'Haytek profil', narx: 700, dillerNarx: 390, minNarx: false, kesishTur: 'haytek', isPerimeter: true },
+    { id: 3, nom: 'Haytek profil', narx: 350, dillerNarx: 190, minNarx: false, kesishTur: 'haytek', isPerimeter: true },
     { id: 4, nom: 'Oddiy Setka',    narx: 15, dillerNarx: 10, minNarx: false, kesishTur: 'yonga' }
   ];
 
@@ -58,7 +58,8 @@ describe('B. Narxlash va 1 m² Minimal Qoidasi (Buyurtma bo\'limi)', () => {
       const bitta = calcM2(q.boy, q.eni);
       totalM2 += bitta * soni;
       if (p.isPerimeter || p.kesishTur === 'haytek') {
-        const som = (parseFloat(q.boy) + parseFloat(q.eni)) * pr * soni;
+        const perimetrSm = (parseFloat(q.boy) + parseFloat(q.eni)) * 2;
+        const som = perimetrSm * pr * soni;
         totalUsd += som / kurs;
       } else if (p.minNarx) {
         totalUsd += (bitta <= 1 ? pr : bitta * pr) * soni;

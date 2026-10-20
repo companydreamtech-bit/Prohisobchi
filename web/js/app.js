@@ -62,16 +62,22 @@ import {
 // BAZAVIY HOLAT (STATE) & SAAS MULTI-TENANCY
 // ==========================================================================
 
+export const BUYURTMA_KATEGORIYALARI = [
+  { id: 'pastga', nom: 'Rom pastga', belgi: '⬇️', profilId: 2 },
+  { id: 'yonga', nom: 'Rom yonga', belgi: '➡️', profilId: 5 },
+  { id: 'eshik', nom: 'Eshik', belgi: '🚪', profilId: 1 },
+  { id: 'haytek', nom: 'Haytek', belgi: '⚡', profilId: 3 }
+];
+
 export const DEFAULT_PROFILLAR = [
-  { id: 1, nom: 'Eshik (Set Pro Katta)', chakanaNarx: 40, dilerNarx: 28, narx: 40, dillerNarx: 28, minNarx: false, tur: 'katta', kesishTur: 'eshik' },
-  { id: 2, nom: 'Kichkina profil pastga', chakanaNarx: 32, dilerNarx: 23, narx: 32, dillerNarx: 23, minNarx: true, tur: 'kichik', kesishTur: 'pastga' },
-  { id: 5, nom: 'Kichkina profil yonga', chakanaNarx: 33, dilerNarx: 25, narx: 33, dillerNarx: 25, minNarx: true, tur: 'kichik', kesishTur: 'yonga' },
-  { id: 3, nom: 'Haytek profil', chakanaNarx: 700, dilerNarx: 390, narx: 700, dillerNarx: 390, minNarx: false, tur: 'haytek', kesishTur: 'haytek', isPerimeter: true },
-  { id: 4, nom: 'Oddiy Setka', chakanaNarx: 15, dilerNarx: 10, narx: 15, dillerNarx: 10, minNarx: false, tur: 'kichik', kesishTur: 'yonga' }
+  { id: 2, nom: 'Rom pastga', chakanaNarx: 32, dilerNarx: 23, narx: 32, dillerNarx: 23, minNarx: true, tur: 'kichik', kesishTur: 'pastga' },
+  { id: 5, nom: 'Rom yonga', chakanaNarx: 33, dilerNarx: 25, narx: 33, dillerNarx: 25, minNarx: true, tur: 'kichik', kesishTur: 'yonga' },
+  { id: 1, nom: 'Eshik', chakanaNarx: 40, dilerNarx: 28, narx: 40, dillerNarx: 28, minNarx: false, tur: 'katta', kesishTur: 'eshik' },
+  { id: 3, nom: 'Haytek', chakanaNarx: 350, dilerNarx: 190, narx: 350, dillerNarx: 190, minNarx: false, tur: 'haytek', kesishTur: 'haytek', isPerimeter: true }
 ];
 
 export function getSyncedProfillar(storagePrefix) {
-  const version = '2026_rates_v3';
+  const version = '2026_rates_v4';
   const savedVer = localStorage.getItem('prohisobchi_profillar_ver');
   if (savedVer !== version) {
     localStorage.setItem('prohisobchi_profillar_ver', version);
@@ -104,12 +110,12 @@ let state = {
   ],
   cuttingRows: [],
   cuttingSelectedBrendId: 'standart',
-  orderNarxTuri: 'chakana',
+  orderNarxTuri: 'diler',
   orderTolovTuri: 'Naqd',
   nextRowId: 2,
   qc: {
     profilTur: 'pastga',
-    narxTuri: 'chakana',
+    narxTuri: 'diler',
     eni: '',
     boy: '',
     soni: 1
@@ -274,9 +280,9 @@ function renderOrderRows() {
         ${state.orderRows.length > 1 ? `<button class="del-row-btn" data-id="${row.id}" style="background:#FEE8E8;color:#EF4444;border:none;border-radius:6px;width:24px;height:24px;font-weight:700;cursor:pointer;">✕</button>` : ''}
       </div>
 
-      <!-- Konstruksiya chiplari -->
+      <!-- Faqat 4 ta kategoriya (knopka) -->
       <div class="konstruksiya-chips-flow">
-        ${Object.values(KONSTRUKSIYA_TURLARI).map(k => `
+        ${BUYURTMA_KATEGORIYALARI.map(k => `
           <button type="button" class="konstruksiya-chip-btn ${row.tur === k.id ? 'active' : ''}" data-rowid="${row.id}" data-tur="${k.id}">
             <span>${k.belgi}</span> <span>${k.nom}</span>
           </button>
@@ -305,7 +311,7 @@ function renderOrderRows() {
         row.tur = btn.dataset.tur;
         if (row.tur === 'pastga') row.profilId = 2;
         else if (row.tur === 'yonga') row.profilId = 5;
-        else if (['eshik', 'tayyor', 'evro', 'tayyor_evro'].includes(row.tur)) row.profilId = 1;
+        else if (row.tur === 'eshik') row.profilId = 1;
         else if (row.tur === 'haytek') row.profilId = 3;
         renderOrderRows();
         updateOrderSummary();
@@ -360,9 +366,19 @@ function saveCurrentOrder() {
     return;
   }
 
+  const formattedRows = validRows.map(r => {
+    let mosTur = 'pastga';
+    if (r.tur === 'pastga' || r.profilId === 2) mosTur = 'pastga';
+    else if (r.tur === 'yonga' || r.profilId === 5) mosTur = 'yonga';
+    else if (r.tur === 'eshik' || r.profilId === 1 || ['eshik', 'tayyor', 'evro', 'tayyor_evro'].includes(r.tur)) mosTur = 'eshik';
+    else if (r.tur === 'haytek' || r.profilId === 3) mosTur = 'haytek';
+    else mosTur = r.tur || 'pastga';
+    return { ...r, tur: mosTur };
+  });
+
   const tanlanganBrend = state.brendlar.find(b => b.id === brendId) || state.brendlar[0];
-  const calc = hisoblaBuyurtmaNarxi(validRows, state.profillar, state.kurs, state.orderNarxTuri, true);
-  const detallar = generatsiyaDetallar(validRows, tanlanganBrend);
+  const calc = hisoblaBuyurtmaNarxi(formattedRows, state.profillar, state.kurs, state.orderNarxTuri, true);
+  const detallar = generatsiyaDetallar(formattedRows, tanlanganBrend);
   const bom = hisoblaBOM(detallar);
 
   const newOrder = {
@@ -380,7 +396,7 @@ function saveCurrentOrder() {
     jamiUsd: calc.jamiUsd,
     jamiSom: calc.jamiSom,
     tolovHolati: state.orderTolovTuri,
-    qatorlar: validRows,
+    qatorlar: formattedRows,
     detallar,
     bom
   };
@@ -389,7 +405,7 @@ function saveCurrentOrder() {
   localStorage.setItem(storagePrefix + 'buyurtmalar', JSON.stringify(state.buyurtmalar));
   syncTenantDataToCloud('buyurtmalar', state.buyurtmalar);
 
-  // Avtomatik ravishda Kesish saqlangan_olchamlar ga ham qo'shish
+  // Avtomatik ravishda Kesish -> Saqlangan o'lchamlar ga mos turi bilan qo'shish
   try {
     const sList = JSON.parse(localStorage.getItem('saqlangan_olchamlar')) || [];
     sList.unshift({
@@ -399,16 +415,13 @@ function saveCurrentOrder() {
       izoh: `Buyurtma #${newOrder.id}`,
       rang: newOrder.rang,
       vaqt: new Date().toLocaleString('ru-RU'),
-      olchamlar: validRows.map(r => {
-        const prof = state.profillar.find(p => p.id === r.profilId);
-        return {
-          id: Date.now() + Math.random(),
-          boy: r.boy,
-          eni: r.eni,
-          soni: r.soni || 1,
-          tur: r.tur || prof?.kesishTur || 'yonga'
-        };
-      })
+      olchamlar: formattedRows.map(r => ({
+        id: Date.now() + Math.random(),
+        boy: r.boy,
+        eni: r.eni,
+        soni: r.soni || 1,
+        tur: r.tur // Rom pastga -> pastga, Rom yonga -> yonga, Eshik -> eshik, Haytek -> haytek
+      }))
     });
     localStorage.setItem('saqlangan_olchamlar', JSON.stringify(sList));
     state.saqlanganOlchamlar = sList;
