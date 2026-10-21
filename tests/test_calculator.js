@@ -183,5 +183,55 @@ describe('5. Tannarx (Sebestoimost) NaN Bo\'lmaslik va To\'liq Hisoblash Testlar
     assert.ok(seb.aksessuarUsd > 0, 'aksessuarUsd > 0 bo\'lishi kerak');
     assert.ok(seb.profillarUsd > 0, 'profillarUsd > 0 bo\'lishi kerak');
   });
+
+  it('3 ta asosiy tuzatish: 4 ta kategoriya, Haytek 390/700 perimetr formulasi va Raskroy varaqasi', async () => {
+    // 1. Faqat 4 ta kategoriya app.js da mavjudligi
+    const fs = await import('node:fs');
+    const path = await import('node:path');
+    const appCode = fs.readFileSync(path.resolve('web/js/app.js'), 'utf8');
+    assert.ok(appCode.includes("nom: 'Rom yonga'"));
+    assert.ok(appCode.includes("nom: 'Rom pastga'"));
+    assert.ok(appCode.includes("nom: 'Eshik'"));
+    assert.ok(appCode.includes("nom: 'Haytek'"));
+
+    // 2. Haytek perimetr formulasi (100 x 100 sm, 1 dona):
+    // Umumiy_sm = (100 + 100) * 2 = 400 sm
+    // Diller: 400 * 390 = 156 000 so'm
+    // Standart: 400 * 700 = 280 000 so'm
+    const profillar = [
+      { id: 3, nom: 'Haytek profil', chakanaNarx: 700, dilerNarx: 390, minNarx: false, tur: 'haytek', kesishTur: 'haytek' }
+    ];
+    const haytekRow = [{ id: 1, profilId: 3, eni: 100, boy: 100, soni: 1, tur: 'haytek' }];
+    const narxDiler = hisoblaBuyurtmaNarxi(haytekRow, profillar, 12900, 'diler', true);
+    assert.equal(narxDiler.jamiSom, 156000);
+
+    const narxStandart = hisoblaBuyurtmaNarxi(haytekRow, profillar, 12900, 'chakana', true);
+    assert.equal(narxStandart.jamiSom, 280000);
+
+    // 3. Kesish: 147 x 48 sm, 6 dona (Rom pastga)
+    const { generatsiyaIshchiXabari } = await import('../web/js/telegram.js');
+    const orderRows = [{ id: 1, profilId: 2, eni: 48, boy: 147, soni: 6, tur: 'pastga' }];
+    const detallar = generatsiyaDetallar(orderRows, brend);
+    const mockOrder = {
+      id: 'TEST1234',
+      sana: '12:00',
+      mijozIsm: 'Anvar aka',
+      rang: '306G',
+      detallar
+    };
+
+    const varaq = generatsiyaIshchiXabari(mockOrder, null, null, 12900);
+    // Ramka soni soni ga ko'paytirilgan: 149 sm (12 dona), 48 sm (12 dona)
+    assert.ok(varaq.includes('149') && varaq.includes('12 dona'), 'Ramka bo\'yi 12 dona bo\'lishi kerak');
+    assert.ok(varaq.includes('48') && varaq.includes('12 dona'), 'Ramka eni 12 dona bo\'lishi kerak');
+    assert.ok(varaq.includes('Ruchka:') && varaq.includes('6 dona'), 'Ruchka 6 dona bo\'lishi kerak');
+
+    // Raskroy bloki
+    assert.ok(varaq.includes('KESISH REJASI (Profil: 600sm)'), 'Raskroy sarlavhasi chiqishi kerak');
+    assert.ok(varaq.includes('149 / 149 / 149 / 149'), 'Kesimlar / bilan ajratilishi kerak');
+    assert.ok(varaq.includes('qoldiq:'), 'Qoldiq ko\'rsatilishi kerak');
+    assert.ok(varaq.includes('JAMI PROFIL SARFI:'), 'Jami profil sarfi chiqishi kerak');
+    assert.ok(varaq.includes('TANNARX (SEBESTOIMOST)'), 'Tannarx chiqishi kerak');
+  });
 });
 

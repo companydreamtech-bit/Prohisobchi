@@ -266,13 +266,13 @@ export function hisoblaBuyurtmaNarxi(qatorlar, profillar, kurs = 12900, narxTuri
     let qatorUsd = 0;
 
     // 4. HAYTEK PROFILI: Kvadratga (m² ga) o'lchanmasin!
-    // 4 ta tomoni yig'indisi (perimetri) bo'yicha hisoblansin: Perimetr_sm = (Eni + Bo'yi) * 2.
-    // Masalan, 50 x 150 sm bo'lsa: 50*2 + 150*2 = 400 sm.
-    // Diler: 400 * 190 so'm = 76 000 so'm | Standart: 400 * 350 so'm = 140 000 so'm
+    // 4 ta tomoni yig'indisi (perimetri) bo'yicha hisoblansin: Umumiy_sm = (Eni + Bo'yi) * 2.
+    // Diller rejimida: 1 sm = 390 so'm -> Narx = Umumiy_sm * 390 * soni (Masalan: 100 x 100 sm -> 400 * 390 = 156 000 so'm)
+    // Standart (mijoz) rejimida: 1 sm = 700 so'm -> Narx = Umumiy_sm * 700 * soni (Masalan: 100 x 100 sm -> 400 * 700 = 280 000 so'm)
     if (profil.tur === 'haytek' || q.tur === 'haytek' || profil.isPerimeter) {
       const smStavka = narxTuri === 'diler' 
-        ? (profil.dilerNarx ?? profil.dillerNarx ?? 190) 
-        : (profil.chakanaNarx ?? profil.narx ?? 350);
+        ? (profil.dilerNarx ?? profil.dillerNarx ?? 390) 
+        : (profil.chakanaNarx ?? profil.narx ?? 700);
       
       const perimetrSm = (eni + boy) * 2;
       const qatorSom = perimetrSm * smStavka * soni;

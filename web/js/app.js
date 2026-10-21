@@ -63,21 +63,22 @@ import {
 // ==========================================================================
 
 export const BUYURTMA_KATEGORIYALARI = [
-  { id: 'pastga', nom: 'Rom pastga', belgi: '⬇️', profilId: 2 },
   { id: 'yonga', nom: 'Rom yonga', belgi: '➡️', profilId: 5 },
+  { id: 'pastga', nom: 'Rom pastga', belgi: '⬇️', profilId: 2 },
   { id: 'eshik', nom: 'Eshik', belgi: '🚪', profilId: 1 },
   { id: 'haytek', nom: 'Haytek', belgi: '⚡', profilId: 3 }
 ];
 
 export const DEFAULT_PROFILLAR = [
-  { id: 2, nom: 'Rom pastga', chakanaNarx: 32, dilerNarx: 23, narx: 32, dillerNarx: 23, minNarx: true, tur: 'kichik', kesishTur: 'pastga' },
-  { id: 5, nom: 'Rom yonga', chakanaNarx: 33, dilerNarx: 25, narx: 33, dillerNarx: 25, minNarx: true, tur: 'kichik', kesishTur: 'yonga' },
-  { id: 1, nom: 'Eshik', chakanaNarx: 40, dilerNarx: 28, narx: 40, dillerNarx: 28, minNarx: false, tur: 'katta', kesishTur: 'eshik' },
-  { id: 3, nom: 'Haytek', chakanaNarx: 350, dilerNarx: 190, narx: 350, dillerNarx: 190, minNarx: false, tur: 'haytek', kesishTur: 'haytek', isPerimeter: true }
+  { id: 5, nom: 'Rom yonga', chakanaNarx: 25, dilerNarx: 25, narx: 25, dillerNarx: 25, minNarx: true, tur: 'kichik', kesishTur: 'yonga' },
+  { id: 2, nom: 'Rom pastga', chakanaNarx: 23, dilerNarx: 23, narx: 23, dillerNarx: 23, minNarx: true, tur: 'kichik', kesishTur: 'pastga' },
+  { id: 1, nom: 'Eshik', chakanaNarx: 28, dilerNarx: 28, narx: 28, dillerNarx: 28, minNarx: false, tur: 'katta', kesishTur: 'eshik' },
+  { id: 3, nom: 'Haytek', chakanaNarx: 700, dilerNarx: 390, narx: 700, dillerNarx: 390, minNarx: false, tur: 'haytek', kesishTur: 'haytek', isPerimeter: true }
 ];
 
 export function getSyncedProfillar(storagePrefix) {
-  const version = '2026_rates_v4';
+  const version = '2026_rates_v5';
+  if (typeof localStorage === 'undefined') return DEFAULT_PROFILLAR;
   const savedVer = localStorage.getItem('prohisobchi_profillar_ver');
   if (savedVer !== version) {
     localStorage.setItem('prohisobchi_profillar_ver', version);
@@ -94,19 +95,19 @@ export function getSyncedProfillar(storagePrefix) {
 }
 
 // Telegram foydalanuvchi ID si orqali ko'p foydalanuvchili xotira
-const telegramUserId = window.Telegram?.WebApp?.initDataUnsafe?.user?.id || 'default';
+const telegramUserId = (typeof window !== 'undefined' && window.Telegram?.WebApp?.initDataUnsafe?.user?.id) || 'default';
 const storagePrefix = `prohisobchi_${telegramUserId}_`;
 
 let state = {
-  kurs: parseFloat(localStorage.getItem('prohisobchi_kurs')) || 12900,
+  kurs: (typeof localStorage !== 'undefined' && parseFloat(localStorage.getItem('prohisobchi_kurs'))) || 12900,
   currentScreen: 'home',
-  theme: localStorage.getItem('prohisobchi_theme') || 'light',
+  theme: (typeof localStorage !== 'undefined' && localStorage.getItem('prohisobchi_theme')) || 'light',
   profillar: getSyncedProfillar(storagePrefix),
   brendlar: getProfilBrendlari(),
   selectedBrendId: 'standart',
-  buyurtmalar: JSON.parse(localStorage.getItem(storagePrefix + 'buyurtmalar')) || [],
+  buyurtmalar: (typeof localStorage !== 'undefined' && JSON.parse(localStorage.getItem(storagePrefix + 'buyurtmalar'))) || [],
   orderRows: [
-    { id: 1, profilId: 2, eni: '', boy: '', soni: 1, tur: 'pastga' }
+    { id: 1, profilId: 5, eni: '', boy: '', soni: 1, tur: 'yonga' }
   ],
   cuttingRows: [],
   cuttingSelectedBrendId: 'standart',
@@ -125,14 +126,14 @@ let state = {
   kassaModalType: 'kirim',
   qarzModalType: 'haqqim',
   tannarxStavkalari: getTannarxStavkalari(),
-  qoldiqlar: JSON.parse(localStorage.getItem('prohisobchi_qoldiqlar')) || {
+  qoldiqlar: (typeof localStorage !== 'undefined' && JSON.parse(localStorage.getItem('prohisobchi_qoldiqlar'))) || {
     kichkina: [],
     katta: [],
     romRuchka: [],
     kattaRuchka: [],
     haytek: []
   },
-  saqlanganOlchamlar: JSON.parse(localStorage.getItem('saqlangan_olchamlar')) || []
+  saqlanganOlchamlar: (typeof localStorage !== 'undefined' && JSON.parse(localStorage.getItem('saqlangan_olchamlar'))) || []
 };
 
 // ==========================================================================
@@ -543,7 +544,7 @@ function openOrderDetailModal(order) {
     <!-- Terminal preview chek -->
     <div style="margin-bottom:10px;">
       <span style="font-size:11px; font-weight:700; color:var(--text-muted); text-transform:uppercase; display:block; margin-bottom:4px;">CHEK MATNI:</span>
-      <pre class="preview-box">${generatsiyaIshchiXabari(order, state.kurs)}</pre>
+      <pre class="preview-box">${generatsiyaIshchiXabari(order, null, order.bom, state.kurs)}</pre>
     </div>
 
     <!-- Buyurtma holatini o'zgartirish chiplari -->
@@ -875,6 +876,8 @@ function runCuttingLogic(showToastMsg = false) {
     }
     if (detailsCard) detailsCard.style.display = 'none';
     if (groupedContainer) groupedContainer.innerHTML = '';
+    const textPlanCard = document.getElementById('cuttingTextPlanCard');
+    if (textPlanCard) textPlanCard.style.display = 'none';
     if (usageCard) usageCard.style.display = 'none';
     if (tannarxCard) tannarxCard.innerHTML = '';
     if (showToastMsg) showToast('Avval o\'lchamlarni kiriting!', '⚠️');
@@ -904,17 +907,19 @@ function runCuttingLogic(showToastMsg = false) {
   document.getElementById('cutStatEfficiency').textContent = `${guruhlangan.umumiySamaradorlik}%`;
   document.getElementById('cutStatWaste').textContent = `${guruhlangan.jamiIsrofBarcha} sm`;
 
-  // 1. Kerakli detallar ro'yxati
+  // 1. Kerakli detallar ro'yxati (Ramka dona soni d.soni ga ko'paytirilgan)
   if (detailsCard && detailsContainer) {
     detailsCard.style.display = 'block';
     detailsContainer.innerHTML = '';
     detallar.forEach(d => {
+      const s = parseInt(d.soni) || 1;
       const row = document.createElement('div');
       row.style.cssText = 'padding:6px 0; border-bottom:1px dashed var(--border-card); font-size:12px;';
-      let info = `<b>${d.idx + 1}-to'r: ${d.eni} × ${d.boy} sm [${d.turNom}] (${d.soni} dona)</b><br>`;
-      info += `<span style="color:var(--text-secondary);">Ramka: ${d.ramkaBoy} × ${d.ramkaEn} sm</span>`;
-      if (d.hasRuchka && d.ruchka > 0) info += ` • <span style="color:var(--text-secondary);">Ruchka: ${d.ruchka} sm</span>`;
-      if (d.setkaUz > 0) info += ` • <span style="color:var(--text-secondary);">Setka: ${d.setkaUz}sm (${d.setkaEnDona} dona)</span>`;
+      let info = `<b>${d.idx + 1}-to'r: ${d.eni} × ${d.boy} sm [${d.turNom}] (${s} dona)</b><br>`;
+      info += `<span style="color:var(--text-secondary);">Ramka: ${d.ramkaBoy} sm (${2 * s} dona), ${d.ramkaEn} sm (${2 * s} dona)</span>`;
+      if (d.hasAProfil && d.aProfilEn > 0) info += ` • <span style="color:var(--text-secondary);">A profil: ${d.aProfilEn} sm (${s} dona)</span>`;
+      if (d.hasRuchka && d.ruchka > 0) info += ` • <span style="color:var(--text-secondary);">Ruchka: ${d.ruchka} sm (${s} dona)</span>`;
+      if (d.setkaUz > 0) info += ` • <span style="color:var(--text-secondary);">Setka: ${d.setkaUz} sm (${d.setkaEnDona} dona)</span>`;
       info += ` • <span style="color:var(--text-secondary);">Ip: ${d.ip} sm</span>`;
       row.innerHTML = info;
       detailsContainer.appendChild(row);
@@ -965,6 +970,27 @@ function runCuttingLogic(showToastMsg = false) {
 
     groupedHtml += `</div>`;
     groupedContainer.innerHTML = groupedHtml;
+  }
+
+  // 2.5. Matnli 🔪 KESISH REJASI (RASKROY) BLOKI
+  const textPlanCard = document.getElementById('cuttingTextPlanCard');
+  const textPlanContainer = document.getElementById('cuttingTextPlanContainer');
+  if (textPlanCard && textPlanContainer) {
+    textPlanCard.style.display = 'block';
+    let planHtml = '';
+    guruhlangan.guruhNatijalar.forEach(g => {
+      planHtml += `<div style="margin-bottom:12px; background:var(--bg-input); padding:10px 12px; border-radius:10px; border:1px solid var(--border-card);">`;
+      planHtml += `<div style="font-weight:800; font-size:12px; color:var(--brand-emerald); margin-bottom:6px;">📌 ${g.nom}:</div>`;
+      (g.natija?.tayoqlar || []).forEach((t, tIdx) => {
+        const kesimStr = t.kesimlar.join(' + ');
+        const qoldiqStr = t.aniqQoldiq > 0 ? ` | qoldiq: <b style="color:var(--text-muted);">${t.aniqQoldiq} sm</b>` : '';
+        planHtml += `<div style="padding:4px 0; border-bottom:1px dashed var(--border-card); font-size:11px;">`;
+        planHtml += `<b>${tIdx + 1}-profil (600 sm):</b> <span style="color:var(--brand-emerald); font-weight:700;">${kesimStr}</span>${qoldiqStr}`;
+        planHtml += `</div>`;
+      });
+      planHtml += `</div>`;
+    });
+    textPlanContainer.innerHTML = planHtml;
   }
 
   // 3. Vizual lentalar
@@ -1686,21 +1712,37 @@ document.addEventListener('DOMContentLoaded', () => {
       showToast('Avval kesish o\'lchamlarini kiriting!', '⚠️');
       return;
     }
-    if (state.lastCuttingResult) {
-      try {
-        const tanlanganBrend = state.brendlar.find(b => b.id === (state.cuttingSelectedBrendId || state.selectedBrendId)) || state.brendlar[0];
-        const sexBuyurtma = {
-          id: 'RASKROY',
-          sana: new Date().toLocaleTimeString('ru-RU'),
-          mijozIsm: 'Kesish Sexi',
-          rang: 'OQ',
-          detallar: generatsiyaDetallar(validRows, tanlanganBrend)
-        };
-        await buyurtmaniGuruhgaYubor(sexBuyurtma, state.lastCuttingResult, hisoblaBOM(sexBuyurtma.detallar));
-        showToast('Sex guruhiga yuborildi!', '✈️');
-      } catch (e) {
-        alert(e.message);
+    if (!state.lastCuttingResult) {
+      runCuttingLogic(false);
+    }
+    try {
+      const tanlanganBrend = state.brendlar.find(b => b.id === (state.cuttingSelectedBrendId || state.selectedBrendId)) || state.brendlar[0];
+      const detallar = generatsiyaDetallar(validRows, tanlanganBrend);
+      const sexBuyurtma = {
+        id: 'RASKROY',
+        sana: new Date().toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' }),
+        mijozIsm: 'Kesish Sexi',
+        rang: 'OQ',
+        detallar
+      };
+      const bom = hisoblaBOM(detallar);
+      const xabarIshchi = generatsiyaIshchiXabari(sexBuyurtma, state.lastCuttingResult, bom, state.kurs);
+      
+      if (window.Telegram?.WebApp?.sendData) {
+        try {
+          window.Telegram.WebApp.sendData(JSON.stringify({
+            chat_id: getTelegramConfig().chatId,
+            cutting_map_text: xabarIshchi
+          }));
+        } catch (e) {
+          console.warn('WebApp.sendData:', e);
+        }
       }
+
+      await telegramgaXabarYubor(xabarIshchi);
+      showToast('Sex guruhiga yuborildi!', '✈️');
+    } catch (e) {
+      alert(e.message);
     }
   });
 
@@ -1710,16 +1752,26 @@ document.addEventListener('DOMContentLoaded', () => {
       showToast('Avval kesish o\'lchamlarini kiriting!', '⚠️');
       return;
     }
-    if (state.lastCuttingResult) {
-      const tanlanganBrend = state.brendlar.find(b => b.id === (state.cuttingSelectedBrendId || state.selectedBrendId)) || state.brendlar[0];
-      const msg = generatsiyaIshchiXabari(
-        { id: 'KESISH', sana: new Date().toLocaleDateString(), rang: 'OQ', detallar: generatsiyaDetallar(validRows, tanlanganBrend) },
-        state.lastCuttingResult,
-        null
-      );
-      klipbordgaNusxala(msg);
-      showToast('Kesish xaritasi nusxalandi!', '📋');
+    if (!state.lastCuttingResult) {
+      runCuttingLogic(false);
     }
+    const tanlanganBrend = state.brendlar.find(b => b.id === (state.cuttingSelectedBrendId || state.selectedBrendId)) || state.brendlar[0];
+    const detallar = generatsiyaDetallar(validRows, tanlanganBrend);
+    const sexBuyurtma = {
+      id: 'RASKROY',
+      sana: new Date().toLocaleDateString('ru-RU'),
+      mijozIsm: 'Kesish Sexi',
+      rang: 'OQ',
+      detallar
+    };
+    const msg = generatsiyaIshchiXabari(
+      sexBuyurtma,
+      state.lastCuttingResult,
+      hisoblaBOM(detallar),
+      state.kurs
+    );
+    klipbordgaNusxala(msg);
+    showToast('Kesish xaritasi nusxalandi!', '📋');
   });
 
   document.getElementById('btnRecalculateCut')?.addEventListener('click', () => runCuttingLogic(true));

@@ -113,7 +113,7 @@ describe('💰 2. NARXLASH, KVADRATURA VA MINIMAL 1m² QOIDASI', () => {
     { id: 1, nom: 'Eshik (Set Pro Katta)', chakanaNarx: 40, dilerNarx: 28, minNarx: false, tur: 'katta', kesishTur: 'eshik' },
     { id: 2, nom: 'Kichkina profil pastga', chakanaNarx: 32, dilerNarx: 23, minNarx: true, tur: 'kichik', kesishTur: 'pastga' },
     { id: 5, nom: 'Kichkina profil yonga', chakanaNarx: 33, dilerNarx: 25, minNarx: true, tur: 'kichik', kesishTur: 'yonga' },
-    { id: 3, nom: 'Haytek profil', chakanaNarx: 350, dilerNarx: 190, minNarx: false, tur: 'haytek', kesishTur: 'haytek' }
+    { id: 3, nom: 'Haytek profil', chakanaNarx: 700, dilerNarx: 390, minNarx: false, tur: 'haytek', kesishTur: 'haytek' }
   ];
   const kurs = 12800;
 
@@ -148,14 +148,14 @@ describe('💰 2. NARXLASH, KVADRATURA VA MINIMAL 1m² QOIDASI', () => {
   });
 
   it('2.4 Haytek profil perimetr santimetri bo\'yicha hisoblanishi kerak', () => {
-    // 50 x 150 sm, Perimetr = (50+150)*2 = 400 sm. Diler: 400 * 190 = 76,000 so'm
+    // 50 x 150 sm, Perimetr = (50+150)*2 = 400 sm. Diler: 400 * 390 = 156,000 so'm
     const qatorlar = [{ id: 1, profilId: 3, eni: 50, boy: 150, soni: 1, tur: 'haytek' }];
     const narxDiler = hisoblaBuyurtmaNarxi(qatorlar, profillar, kurs, 'diler', true);
-    assert.equal(narxDiler.jamiSom, 76000);
+    assert.equal(narxDiler.jamiSom, 156000);
 
-    // Standart: 400 * 350 = 140,000 so'm
+    // Standart: 400 * 700 = 280,000 so'm
     const narxStandart = hisoblaBuyurtmaNarxi(qatorlar, profillar, kurs, 'chakana', true);
-    assert.equal(narxStandart.jamiSom, 140000);
+    assert.equal(narxStandart.jamiSom, 280000);
   });
 
   it('2.4 formatSom: summalarni chiroyli probel bilan formatlashi kerak', () => {

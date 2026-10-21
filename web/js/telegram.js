@@ -3,7 +3,8 @@
  * Telegram Bot API, guruhga yuborish, WebApp integratsiyasi va nusxa olish
  */
 
-import { formatSom } from './calculator.js';
+import { formatSom, hisoblaSebestoimost } from './calculator.js';
+import { hisoblaGuruhlanganRaskroy } from './cutting.js';
 
 // Standart parametrlar
 export const DEFAULT_TELEGRAM_CONFIG = {
@@ -27,14 +28,18 @@ export function saqlaTelegramConfig(cfg) {
 /**
  * 1-XABAR: Ishchilar uchun ishlab chiqarish va kesish xaritasi matni
  */
-export function generatsiyaIshchiXabari(buyurtma, kesishNatijasi, bom) {
+export function generatsiyaIshchiXabari(buyurtma, kesishNatijasi = null, bom = null, kurs = 12900) {
+  if (typeof kesishNatijasi === 'number') {
+    kurs = kesishNatijasi;
+    kesishNatijasi = null;
+  }
   const chiziq = '━━━━━━━━━━━━━━━━━━━━';
   const lines = [
     '🏭 <b>ISHLAB CHIQARISH VARAQASI (SEX UCHUN)</b>',
     `🆔 Buyurtma: <code>#${buyurtma.id}</code>`,
     `📅 Sana: <b>${buyurtma.sana}</b>`,
     `👤 Mijoz: <b>${buyurtma.mijozIsm || 'Noma\'lum'}</b>`,
-    `🎨 Rang: <b>${buyurtma.rang}</b>`,
+    `🎨 Rang: <b>${buyurtma.rang || 'OQ'}</b>`,
     `⏰ Muddat: <b>${buyurtma.muddat || 'Ko\'rsatilmadi'}</b>`,
     chiziq,
     '📐 <b>O\'LCHAMLAR VA DETALLAR:</b>'
@@ -42,28 +47,111 @@ export function generatsiyaIshchiXabari(buyurtma, kesishNatijasi, bom) {
 
   if (buyurtma.detallar && buyurtma.detallar.length > 0) {
     buyurtma.detallar.forEach((d, i) => {
-      lines.push(
-        `<b>${i + 1}) ${d.boy} × ${d.eni} sm</b> [${d.soni} dona] — <i>${d.turNom}</i>\n` +
-        `   • Ramka: <code>${d.ramkaBoy}</code> sm (2 dona), <code>${d.ramkaEn}</code> sm (2 dona)`
-      );
-      if (d.hasRuchka) {
-        lines.push(`   • Ruchka: <code>${d.ruchka}</code> sm (${d.soni} dona)`);
-        lines.push(`   • Shnur (Ip): <code>${d.ip}</code> sm`);
-        lines.push(`   • To'r: <code>${d.setkaBoy}</code> sm uzunlik / <code>${d.setkaEnDona}</code> bo'lak`);
+      const s = parseInt(d.soni) || 1;
+      const ramkaBoyDona = 2 * s;
+      const ramkaEnDona = 2 * s;
+      let detalText = `<b>${i + 1}) ${d.boy} × ${d.eni} sm</b> [${s} dona] — <i>${d.turNom || d.tur}</i>\n` +
+        `   • Ramka: <code>${d.ramkaBoy}</code> sm (${ramkaBoyDona} dona), <code>${d.ramkaEn}</code> sm (${ramkaEnDona} dona)`;
+      
+      if (d.hasAProfil && d.aProfilEn > 0) {
+        detalText += `\n   • A profil: <code>${d.aProfilEn}</code> sm (${s} dona)`;
       }
+      if (d.hasRuchka && d.ruchka > 0) {
+        detalText += `\n   • Ruchka: <code>${d.ruchka}</code> sm (${s} dona)`;
+      }
+      if (d.ip > 0) {
+        detalText += `\n   • Shnur (Ip): <code>${d.ip}</code> sm`;
+      }
+      if (d.setkaBoy > 0 || d.setkaUz > 0) {
+        const setkaUz = d.setkaBoy || d.setkaUz;
+        const setkaDona = d.setkaEnDona || d.setkaDona;
+        detalText += `\n   • To'r: <code>${setkaUz}</code> sm (${setkaDona} dona)`;
+      }
+      lines.push(detalText);
     });
   }
 
-  // Kesish rejasi xulosasi
-  if (kesishNatijasi && kesishNatijasi.tayoqlar && kesishNatijasi.tayoqlar.length > 0) {
-    lines.push(chiziq);
-    lines.push(`✂️ <b>KESISH REJASI (Arra: 3mm):</b>`);
-    kesishNatijasi.tayoqlar.forEach((t, i) => {
-      const kesimStr = t.kesimlar.map(k => `${k}sm`).join(' + ');
-      const qoldiqStr = t.aniqQoldiq > 0.1 ? ` (qoldiq: ${t.aniqQoldiq} sm)` : '';
-      lines.push(`<b>${i + 1}) ${t.nom}:</b> <code>${kesimStr}</code>${qoldiqStr}`);
+  // Agar kesishNatijasi berilmagan bo'lsa, lekin detallar mavjud bo'lsa, avtomatik hisoblaymiz:
+  let raskroyData = kesishNatijasi;
+  if ((!raskroyData || (!raskroyData.guruhNatijalar && !raskroyData.tayoqlar)) && buyurtma.detallar && buyurtma.detallar.length > 0) {
+    try {
+      raskroyData = hisoblaGuruhlanganRaskroy(buyurtma.detallar, 600, {}, 0.3);
+    } catch (e) {
+      console.warn('Raskroy hisoblashda xatolik:', e);
+    }
+  }
+
+  // 🔪 KESISH REJASI (RASKROY) BLOKI
+  const guruhlar = raskroyData?.guruhNatijalar || [];
+  if (guruhlar.length > 0) {
+    const samaradorlik = raskroyData.umumiySamaradorlik ?? 99;
+    const isrof = raskroyData.jamiIsrofBarcha ?? 0;
+
+    lines.push('─────────────────────');
+    lines.push(`⚡ <b>Samaradorlik:</b> ${samaradorlik}% (${isrof}sm isrof)`);
+    lines.push(`🔪 <b>KESISH REJASI (Profil: 600sm):</b>\n`);
+
+    guruhlar.forEach((g, gIdx) => {
+      const gJamiTayoq = g.natija?.jamiTayoqSoni || (g.natija?.tayoqlar?.length || 0);
+      const gSamarali = g.natija?.samaradorlikFoiz ?? 99;
+      lines.push(`▸ <b>${g.nom}</b> (${gJamiTayoq} ta, ${gSamarali}% samarali):`);
+
+      (g.natija?.tayoqlar || []).forEach((t, tIdx) => {
+        const tNom = t.nom || `Yangi 600sm`;
+        const kesimStr = t.kesimlar.join(' / ');
+        const qoldiqStr = t.aniqQoldiq > 0 ? `${t.aniqQoldiq}sm` : '0sm';
+        lines.push(`  ${tIdx + 1}) ${tNom}:`);
+        lines.push(`     <code>${kesimStr}</code>`);
+        lines.push(`     qoldiq: ${qoldiqStr}`);
+      });
+      if (gIdx < guruhlar.length - 1) {
+        lines.push('');
+      }
     });
-    lines.push(`⚡ <b>Samaradorlik:</b> ${kesishNatijasi.samaradorlikFoiz}% | Isrof: ${kesishNatijasi.jamiIsrof} sm`);
+
+    // 📦 JAMI PROFIL SARFI
+    lines.push('─────────────────────');
+    lines.push(`📦 <b>JAMI PROFIL SARFI:</b>`);
+    guruhlar.forEach(g => {
+      const gJamiTayoq = g.natija?.jamiTayoqSoni || (g.natija?.tayoqlar?.length || 0);
+      lines.push(`  ${g.nom}: <b>${gJamiTayoq} ta</b>`);
+    });
+
+    // 💵 TANNARX (SEBESTOIMOST)
+    try {
+      const sebestoimost = hisoblaSebestoimost(guruhlar, buyurtma.detallar);
+      if (sebestoimost) {
+        lines.push('─────────────────────');
+        lines.push(`💵 <b>TANNARX (SEBESTOIMOST):</b>`);
+        sebestoimost.qismlar.forEach(q => {
+          lines.push(`  • ${q.nom}: <b>${q.usd} $</b> (${q.tayoqSoni} ta 6m tayoq)`);
+        });
+        if (sebestoimost.setkaUsd > 0) {
+          lines.push(`  • To'r (Setka) sarfi: <b>${sebestoimost.setkaUsd} $</b>`);
+        }
+        if (sebestoimost.aksessuarUsd > 0) {
+          lines.push(`  • Aksessuarlar (ugolnik, tutqich): <b>${sebestoimost.aksessuarUsd} $</b>`);
+        }
+        lines.push(`  💰 <b>JAMI TANNARX:</b> <code>${sebestoimost.jamiUsd} $</code>`);
+        const valKurs = (typeof kurs === 'number' && kurs > 0) ? kurs : 12900;
+        const jamiSom = Math.round(sebestoimost.jamiUsd * valKurs);
+        lines.push(`  🇺🇿 <b>SO'MDA:</b> <b>${formatSom(jamiSom)} so'm</b>`);
+      }
+    } catch (e) {
+      console.warn('Sebestoimost hisoblash xatosi:', e);
+    }
+  } else if (raskroyData && raskroyData.tayoqlar && raskroyData.tayoqlar.length > 0) {
+    // Oddiy 1D tayoqlar ro'yxati (fallback)
+    lines.push('─────────────────────');
+    lines.push(`⚡ <b>Samaradorlik:</b> ${raskroyData.samaradorlikFoiz}% (${raskroyData.jamiIsrof}sm isrof)`);
+    lines.push(`🔪 <b>KESISH REJASI (Profil: 600sm):</b>\n`);
+    raskroyData.tayoqlar.forEach((t, i) => {
+      const kesimStr = t.kesimlar.join(' / ');
+      const qoldiqStr = t.aniqQoldiq > 0 ? `${t.aniqQoldiq}sm` : '0sm';
+      lines.push(`  ${i + 1}) ${t.nom || 'Yangi 600sm'}:`);
+      lines.push(`     <code>${kesimStr}</code>`);
+      lines.push(`     qoldiq: ${qoldiqStr}`);
+    });
   }
 
   // BOM Xomashyo ehtiyoji
@@ -83,6 +171,7 @@ export function generatsiyaIshchiXabari(buyurtma, kesishNatijasi, bom) {
 
   return lines.join('\n');
 }
+
 
 /**
  * 2-XABAR: Kassa va Mijoz uchun hisob cheki matni
