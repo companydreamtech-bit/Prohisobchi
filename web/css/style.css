@@ -168,6 +168,22 @@ input, select, textarea, button {
   gap: 8px;
 }
 
+.header-kassa-pill {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  background: var(--color-kirim-bg);
+  border: 1px solid var(--brand-emerald);
+  border-radius: var(--radius-full);
+  padding: 4px 8px;
+  font-size: 11px;
+  font-weight: 800;
+  font-family: var(--font-mono);
+  color: var(--brand-emerald-hover);
+  cursor: pointer;
+  white-space: nowrap;
+}
+
 .header-kurs-pill {
   display: flex;
   align-items: center;

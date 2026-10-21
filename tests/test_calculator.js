@@ -231,7 +231,108 @@ describe('5. Tannarx (Sebestoimost) NaN Bo\'lmaslik va To\'liq Hisoblash Testlar
     assert.ok(varaq.includes('149 / 149 / 149 / 149'), 'Kesimlar / bilan ajratilishi kerak');
     assert.ok(varaq.includes('qoldiq:'), 'Qoldiq ko\'rsatilishi kerak');
     assert.ok(varaq.includes('JAMI PROFIL SARFI:'), 'Jami profil sarfi chiqishi kerak');
-    assert.ok(varaq.includes('TANNARX (SEBESTOIMOST)'), 'Tannarx chiqishi kerak');
+    assert.ok(!varaq.includes('TANNARX (SEBESTOIMOST)'), 'Tannarx sex varaqasida bo\'lmasligi kerak');
+    assert.ok(!varaq.includes('KERAKLI XOMASHYO'), 'Kerakli xomashyo sex varaqasida bo\'lmasligi kerak');
+  });
+});
+
+describe('5. Yangilangan Standart Tariflar va Bo\'sh Soni (UX) Testlari', () => {
+  const standartProfillar = [
+    { id: 5, nom: 'Rom yonga', chakanaNarx: 33, dilerNarx: 25, narx: 33, dillerNarx: 25, minNarx: true, tur: 'kichik', kesishTur: 'yonga' },
+    { id: 2, nom: 'Rom pastga', chakanaNarx: 32, dilerNarx: 23, narx: 32, dillerNarx: 23, minNarx: true, tur: 'kichik', kesishTur: 'pastga' },
+    { id: 1, nom: 'Eshik', chakanaNarx: 40, dilerNarx: 28, narx: 40, dillerNarx: 28, minNarx: false, tur: 'katta', kesishTur: 'eshik' },
+    { id: 3, nom: 'Haytek', chakanaNarx: 700, dilerNarx: 390, narx: 700, dillerNarx: 390, minNarx: false, tur: 'haytek', kesishTur: 'haytek', isPerimeter: true }
+  ];
+
+  it('Soni kiritilmaganda (bo\'sh qolganda) avtomatik 1 deb hisoblanishi kerak', () => {
+    const qatorlar = [{ id: 1, profilId: 5, eni: 100, boy: 100, soni: '', tur: 'yonga' }];
+    const res = hisoblaBuyurtmaNarxi(qatorlar, standartProfillar, 12900, 'chakana', true);
+    assert.equal(res.jamiSoni, 1);
+    assert.equal(res.jamiM2, 1.0);
+    assert.equal(res.jamiUsd, 33.0);
+  });
+
+  it('Rom yonga: 33 $/m² (1 m² gacha 33$, 1.5 m² bo\'lsa 49.5$)', () => {
+    // 1 m² gacha
+    const q1 = [{ id: 1, profilId: 5, eni: 60, boy: 140, soni: 1, tur: 'yonga' }]; // 0.84 m²
+    const res1 = hisoblaBuyurtmaNarxi(q1, standartProfillar, 12900, 'chakana', true);
+    assert.equal(res1.jamiHisoblanganM2, 1.0);
+    assert.equal(res1.jamiUsd, 33.0);
+
+    // 1 m² dan oshganda
+    const q2 = [{ id: 1, profilId: 5, eni: 100, boy: 150, soni: 1, tur: 'yonga' }]; // 1.5 m²
+    const res2 = hisoblaBuyurtmaNarxi(q2, standartProfillar, 12900, 'chakana', true);
+    assert.equal(res2.jamiHisoblanganM2, 1.5);
+    assert.equal(res2.jamiUsd, 49.5);
+  });
+
+  it('Rom pastga: 32 $/m² (1 m² gacha 32$, 2 m² bo\'lsa 64$)', () => {
+    const q1 = [{ id: 1, profilId: 2, eni: 50, boy: 100, soni: 1, tur: 'pastga' }]; // 0.5 m²
+    const res1 = hisoblaBuyurtmaNarxi(q1, standartProfillar, 12900, 'chakana', true);
+    assert.equal(res1.jamiHisoblanganM2, 1.0);
+    assert.equal(res1.jamiUsd, 32.0);
+
+    const q2 = [{ id: 1, profilId: 2, eni: 100, boy: 200, soni: 1, tur: 'pastga' }]; // 2.0 m²
+    const res2 = hisoblaBuyurtmaNarxi(q2, standartProfillar, 12900, 'chakana', true);
+    assert.equal(res2.jamiHisoblanganM2, 2.0);
+    assert.equal(res2.jamiUsd, 64.0);
+  });
+
+  it('Eshik: 40 $/m² (minNarx: false — 0.5 m² bo\'lsa ham 20$ hisoblanadi)', () => {
+    const q = [{ id: 1, profilId: 1, eni: 50, boy: 100, soni: '', tur: 'eshik' }]; // 0.5 m², soni: ''
+    const res = hisoblaBuyurtmaNarxi(q, standartProfillar, 12900, 'chakana', true);
+    assert.equal(res.jamiM2, 0.5);
+    assert.equal(res.jamiHisoblanganM2, 0.5);
+    assert.equal(res.jamiUsd, 20.0);
+  });
+
+  it('Haytek: o\'zgarishsiz (Standart = 700 so\'m/sm, Diller = 390 so\'m/sm)', () => {
+    const q = [{ id: 1, profilId: 3, eni: 100, boy: 100, soni: '', tur: 'haytek' }]; // Perimetr 400 sm
+    const resChakana = hisoblaBuyurtmaNarxi(q, standartProfillar, 12900, 'chakana', true);
+    assert.equal(resChakana.jamiSom, 400 * 700); // 280 000 so'm
+
+    const resDiler = hisoblaBuyurtmaNarxi(q, standartProfillar, 12900, 'diler', true);
+    assert.equal(resDiler.jamiSom, 400 * 390); // 156 000 so'm
+  });
+
+  it('generatsiyaMijozCheki: Barcha o\'lchamlar, profillar, m², summasi va toifa to\'g\'ri chiqishi kerak', async () => {
+    const { generatsiyaMijozCheki } = await import('../web/js/telegram.js');
+    const buyurtma = {
+      id: '9671',
+      sana: '21.10.2026, 12:04',
+      mijozIsm: 'Anvar aka',
+      mijozTel: '+998 90 123 45 67',
+      rang: '306G',
+      narxTuri: 'chakana',
+      kurs: 12900,
+      tolovHolati: 'Naqd',
+      qatorlar: [
+        { eni: 80, boy: 140, soni: 2, tur: 'yonga' },
+        { eni: 70, boy: 130, soni: 2, tur: 'pastga' },
+        { eni: 90, boy: 205, soni: 1, tur: 'eshik' }
+      ]
+    };
+
+    const chek = generatsiyaMijozCheki(buyurtma);
+    assert.ok(chek.includes('🏷️ Toifa: <b>Standart (Chakana)</b>'), 'Toifa Standart (Chakana) bo\'lishi kerak');
+    assert.ok(chek.includes('1) <b>Rom yonga:</b> 80 × 140 sm — 2 dona'), 'Rom yonga chiqishi kerak');
+    assert.ok(chek.includes('2) <b>Rom pastga:</b> 70 × 130 sm — 2 dona'), 'Rom pastga chiqishi kerak');
+    assert.ok(chek.includes('3) <b>Eshik:</b> 90 × 205 sm — 1 dona'), 'Eshik chiqishi kerak');
+    assert.ok(chek.includes('🔢 <b>Jami mahsulot:</b> 5 dona'), 'Jami soni chiqishi kerak');
+  });
+
+  it('generatsiyaMijozCheki: Diller tanlanganda toifa Diller (Ulgurji) chiqishi kerak', async () => {
+    const { generatsiyaMijozCheki } = await import('../web/js/telegram.js');
+    const buyurtma = {
+      id: '9672',
+      sana: '21.10.2026, 12:05',
+      mijozIsm: 'Diler Sherzod',
+      narxTuri: 'diler',
+      qatorlar: [{ eni: 100, boy: 100, soni: 1, tur: 'pastga' }]
+    };
+    const chek = generatsiyaMijozCheki(buyurtma);
+    assert.ok(chek.includes('🏷️ Toifa: <b>Diller (Ulgurji)</b>'), 'Toifa Diller (Ulgurji) bo\'lishi kerak');
+    assert.ok(chek.includes('1) <b>Rom pastga:</b> 100 × 100 sm — 1 dona'), 'Rom pastga chiqishi kerak');
   });
 });
 

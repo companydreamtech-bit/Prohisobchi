@@ -12,12 +12,23 @@ export const DEFAULT_PROFIL_BRENDLARI = [
   { id: 'alutex', nom: 'Alutex Aluminiy', romEnDopusk: 1.6, eshikEnDopusk: 3.6, ruchkaDopusk: -0.8, arra: 0.25 }
 ];
 
+export const DEFAULT_PROFILLAR = [
+  { id: 5, nom: 'Rom yonga', chakanaNarx: 33, dilerNarx: 25, narx: 33, dillerNarx: 25, minNarx: true, tur: 'kichik', kesishTur: 'yonga' },
+  { id: 2, nom: 'Rom pastga', chakanaNarx: 32, dilerNarx: 23, narx: 32, dillerNarx: 23, minNarx: true, tur: 'kichik', kesishTur: 'pastga' },
+  { id: 1, nom: 'Eshik', chakanaNarx: 40, dilerNarx: 28, narx: 40, dillerNarx: 28, minNarx: false, tur: 'katta', kesishTur: 'eshik' },
+  { id: 3, nom: 'Haytek', chakanaNarx: 700, dilerNarx: 390, narx: 700, dillerNarx: 390, minNarx: false, tur: 'haytek', kesishTur: 'haytek', isPerimeter: true }
+];
+
+export const INITIAL_ACTIVE_BRENDLARI = [
+  { id: 'standart', nom: 'Standart (Universal)', romEnDopusk: 2.0, eshikEnDopusk: 4.0, ruchkaDopusk: -0.8, arra: 0.3 }
+];
+
 export function getProfilBrendlari() {
   try {
-    const data = localStorage.getItem('prohisobchi_brendlar');
-    return data ? JSON.parse(data) : DEFAULT_PROFIL_BRENDLARI;
+    const data = (typeof localStorage !== 'undefined') && localStorage.getItem('prohisobchi_brendlar');
+    return data ? JSON.parse(data) : INITIAL_ACTIVE_BRENDLARI;
   } catch (e) {
-    return DEFAULT_PROFIL_BRENDLARI;
+    return INITIAL_ACTIVE_BRENDLARI;
   }
 }
 
@@ -305,6 +316,9 @@ export function hisoblaBuyurtmaNarxi(qatorlar, profillar, kurs = 12900, narxTuri
 
     return {
       ...q,
+      soni,
+      profilNom: profil.nom,
+      turNom: profil.nom,
       haqiqiyM2,
       hisoblanganBittaM2,
       qatorM2,

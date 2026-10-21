@@ -190,10 +190,10 @@ describe('3. Telegram Xabarlari Generatsiyasi Testlari', () => {
 
     assert.ok(xabar.includes('ISHLAB CHIQARISH VARAQASI (SEX UCHUN)'));
     assert.ok(xabar.includes('#1048'));
-    assert.ok(xabar.includes('Alisher aka'));
     assert.ok(xabar.includes('KESISH REJASI'));
-    assert.ok(xabar.includes('KERAKLI XOMASHYO'));
-    assert.ok(xabar.includes('Ugolnik'));
+    assert.ok(xabar.includes('JAMI PROFIL SARFI'));
+    assert.ok(!xabar.includes('KERAKLI XOMASHYO'));
+    assert.ok(!xabar.includes('TANNARX'));
   });
 
   it('generatsiyaMijozCheki: Mijoz to\'lov chekida summa va kvadratura bo\'lishi kerak', () => {

@@ -311,3 +311,41 @@ describe('F. Moliya & Kassa & Qarz Daftari', () => {
     assert.equal(qarzim, 80000);
   });
 });
+
+describe('G. 6 ta Yangi Talab Testlari (Kassa Vidjeti, Ombor, Narx & Brend, Shunchaki, Zaxira)', () => {
+  const content = fs.readFileSync(htmlPath, 'utf8');
+
+  it('1. Bosh sahifada Kassa Balansi kartochkasi bo\'lishi va dublikat tugma bo\'lmasligi kerak', () => {
+    assert.ok(content.includes('id="homeKassaCard"'), 'homeKassaCard topilmadi');
+    assert.ok(content.includes('id="homeKassaSofBalans"'), 'homeKassaSofBalans topilmadi');
+    assert.ok(content.includes('id="homeKassaKirim"'), 'homeKassaKirim topilmadi');
+    assert.ok(content.includes('id="homeKassaChiqim"'), 'homeKassaChiqim topilmadi');
+    assert.ok(!content.includes('id="btnHeroNewOrder"'), 'btnHeroNewOrder dublikati olib tashlanmagan');
+  });
+
+  it('2. Menyudagi ortiqcha Ombor (tab-ombor) olib tashlangan bo\'lishi kerak', () => {
+    assert.ok(!content.includes('id="tab-ombor"'), 'tab-ombor menyudan olib tashlanmagan');
+  });
+
+  it('3. Sozlamalarda narxlar tahrirlanadigan bo\'lishi va saqlash tugmasi bo\'lishi kerak', () => {
+    assert.ok(content.includes('id="sozlamaProfillarTable"'), 'sozlamaProfillarTable topilmadi');
+    assert.ok(content.includes('id="btnSaveProfillarPrices"'), 'btnSaveProfillarPrices topilmadi');
+  });
+
+  it('4. Sozlamalarda profil brendlari va yangi brend qo\'shish modali bo\'lishi kerak', () => {
+    assert.ok(content.includes('id="btnOpenAddBrendModal"'), 'btnOpenAddBrendModal topilmadi');
+    assert.ok(content.includes('id="modalAddBrendOverlay"'), 'modalAddBrendOverlay topilmadi');
+    assert.ok(content.includes('id="btnSubmitAddBrend"'), 'btnSubmitAddBrend topilmadi');
+  });
+
+  it('5. Zaxira nusxa (Backup olish va tiklash) tushunarli nomlangan bo\'lishi kerak', () => {
+    assert.ok(content.includes('Zaxira nusxa (Backup olish va tiklash)'), 'Zaxira nusxa sarlavhasi topilmadi');
+    assert.ok(content.includes('Telefon alishganda, yo\'qolganda yoki dastur o\'chib ketganda'), 'Zaxira nusxa izohi topilmadi');
+  });
+
+  it('6. To\'lov turiga «Shunchaki» (kassa va qarzga ta\'sir qilmaydigan) varianti qo\'shilgan bo\'lishi kerak', () => {
+    assert.ok(content.includes('data-type="Shunchaki"'), 'data-type="Shunchaki" topilmadi');
+    assert.ok(content.includes('Shunchaki'), 'Shunchaki matni topilmadi');
+  });
+});
+

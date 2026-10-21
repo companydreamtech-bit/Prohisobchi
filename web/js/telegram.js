@@ -3,7 +3,7 @@
  * Telegram Bot API, guruhga yuborish, WebApp integratsiyasi va nusxa olish
  */
 
-import { formatSom, hisoblaSebestoimost } from './calculator.js';
+import { formatSom, hisoblaSebestoimost, hisoblaBuyurtmaNarxi, hisoblaM2, DEFAULT_PROFILLAR } from './calculator.js';
 import { hisoblaGuruhlanganRaskroy } from './cutting.js';
 
 // Standart parametrlar
@@ -116,30 +116,6 @@ export function generatsiyaIshchiXabari(buyurtma, kesishNatijasi = null, bom = n
       const gJamiTayoq = g.natija?.jamiTayoqSoni || (g.natija?.tayoqlar?.length || 0);
       lines.push(`  ${g.nom}: <b>${gJamiTayoq} ta</b>`);
     });
-
-    // 💵 TANNARX (SEBESTOIMOST)
-    try {
-      const sebestoimost = hisoblaSebestoimost(guruhlar, buyurtma.detallar);
-      if (sebestoimost) {
-        lines.push('─────────────────────');
-        lines.push(`💵 <b>TANNARX (SEBESTOIMOST):</b>`);
-        sebestoimost.qismlar.forEach(q => {
-          lines.push(`  • ${q.nom}: <b>${q.usd} $</b> (${q.tayoqSoni} ta 6m tayoq)`);
-        });
-        if (sebestoimost.setkaUsd > 0) {
-          lines.push(`  • To'r (Setka) sarfi: <b>${sebestoimost.setkaUsd} $</b>`);
-        }
-        if (sebestoimost.aksessuarUsd > 0) {
-          lines.push(`  • Aksessuarlar (ugolnik, tutqich): <b>${sebestoimost.aksessuarUsd} $</b>`);
-        }
-        lines.push(`  💰 <b>JAMI TANNARX:</b> <code>${sebestoimost.jamiUsd} $</code>`);
-        const valKurs = (typeof kurs === 'number' && kurs > 0) ? kurs : 12900;
-        const jamiSom = Math.round(sebestoimost.jamiUsd * valKurs);
-        lines.push(`  🇺🇿 <b>SO'MDA:</b> <b>${formatSom(jamiSom)} so'm</b>`);
-      }
-    } catch (e) {
-      console.warn('Sebestoimost hisoblash xatosi:', e);
-    }
   } else if (raskroyData && raskroyData.tayoqlar && raskroyData.tayoqlar.length > 0) {
     // Oddiy 1D tayoqlar ro'yxati (fallback)
     lines.push('─────────────────────');
@@ -152,20 +128,13 @@ export function generatsiyaIshchiXabari(buyurtma, kesishNatijasi = null, bom = n
       lines.push(`     <code>${kesimStr}</code>`);
       lines.push(`     qoldiq: ${qoldiqStr}`);
     });
-  }
-
-  // BOM Xomashyo ehtiyoji
-  if (bom) {
-    lines.push(chiziq);
-    lines.push('📦 <b>KERAKLI XOMASHYO:</b>');
-    lines.push(`• Profil: <b>${bom.ramkaMetr} m</b> (~${bom.ramkaTayoq6m} ta 6m tayoq)`);
-    lines.push(`• To'r matosi (Setka): <b>${bom.setkaM2} m²</b>`);
-    lines.push(`• Shnur: <b>${bom.shnurMetr} m</b>`);
-    lines.push(`• Ugolnik: <b>${bom.ugolnikSoni} dona</b> | Ruchka: <b>${bom.tutqichSoni} dona</b>`);
+    lines.push('─────────────────────');
+    lines.push(`📦 <b>JAMI PROFIL SARFI:</b>`);
+    lines.push(`  Profil (600sm): <b>${raskroyData.tayoqlar.length} ta</b>`);
   }
 
   if (buyurtma.izoh) {
-    lines.push(chiziq);
+    lines.push('─────────────────────');
     lines.push(`📝 <b>Izoh:</b> <i>${buyurtma.izoh}</i>`);
   }
 
@@ -178,34 +147,79 @@ export function generatsiyaIshchiXabari(buyurtma, kesishNatijasi = null, bom = n
  */
 export function generatsiyaMijozCheki(buyurtma) {
   const chiziq = '━━━━━━━━━━━━━━━━━━━━';
+  const isDiler = buyurtma.narxTuri === 'diler' || buyurtma.narxTuri === 'diller';
+  const toifaMatni = isDiler ? 'Diller (Ulgurji)' : 'Standart (Chakana)';
+
   const lines = [
     '🧾 <b>«PRO HISOBCHI» TO\'LOV CHEKI</b>',
     `🆔 Buyurtma: <code>#${buyurtma.id}</code>`,
     `📅 Sana: <b>${buyurtma.sana}</b>`,
-    `👤 Mijoz: <b>${buyurtma.mijozIsm || 'Hurmatli mijoz'}</b>`,
+    `👤 Mijoz: <b>${buyurtma.mijozIsm || 'Mijoz'}</b>`,
     `📞 Telefon: <b>${buyurtma.mijozTel || '-'}</b>`,
-    `🎨 Rang: <b>${buyurtma.rang}</b>`,
-    `🏷️ Toifa: <b>${buyurtma.narxTuri === 'diler' ? 'Diler (Ulgurji)' : 'Chakana'}</b>`,
+    `🎨 Rang: <b>${buyurtma.rang || 'OQ'}</b>`,
+    `🏷️ Toifa: <b>${toifaMatni}</b>`,
     chiziq,
     '📊 <b>BUYURTMA TARKIBI:</b>'
   ];
 
-  if (buyurtma.qatorNatijalari) {
-    buyurtma.qatorNatijalari.forEach((q, i) => {
-      lines.push(
-        `${i + 1}. <b>${q.eni} × ${q.boy} sm</b> — ${q.soni} dona\n` +
-        `   Maydon: <code>${q.qatorM2.toFixed(3)} m²</code> | Narx: <b>${q.qatorUsd.toFixed(2)}$</b>`
-      );
+  let items = buyurtma.qatorNatijalari;
+  let calcFallback = null;
+  if (!items || items.length === 0) {
+    const rawRows = buyurtma.qatorlar || buyurtma.detallar || [];
+    if (rawRows.length > 0) {
+      try {
+        calcFallback = hisoblaBuyurtmaNarxi(
+          rawRows,
+          buyurtma.profillar || DEFAULT_PROFILLAR,
+          buyurtma.kurs || 12900,
+          buyurtma.narxTuri || 'chakana',
+          true
+        );
+        items = calcFallback.qatorNatijalari;
+      } catch (e) {
+        console.warn('Chek qatorlarini hisoblashda xatolik:', e);
+      }
+    }
+  }
+
+  const TUR_NOMLARI = {
+    yonga: 'Rom yonga',
+    pastga: 'Rom pastga',
+    eshik: 'Eshik',
+    tayyor: 'Tayyor eshik',
+    evro: 'Evro parog',
+    tayyor_evro: 'Tayyor evro',
+    haytek: 'Haytek'
+  };
+
+  if (items && items.length > 0) {
+    items.forEach((q, i) => {
+      const eni = parseFloat(q.eni) || 0;
+      const boy = parseFloat(q.boy) || 0;
+      const soni = parseInt(q.soni) || 1;
+      const nom = q.profilNom || q.turNom || TUR_NOMLARI[q.tur] || q.nom || 'Rom';
+      const qatorM2 = q.qatorM2 != null ? q.qatorM2 : (hisoblaM2(eni, boy) * soni);
+      const qatorUsd = q.qatorUsd != null ? q.qatorUsd : 0;
+
+      const m2Str = parseFloat(qatorM2.toFixed(3));
+      const usdStr = parseFloat(qatorUsd.toFixed(2));
+
+      lines.push(`${i + 1}) <b>${nom}:</b> ${eni} × ${boy} sm — ${soni} dona (<code>${m2Str} m²</code> | <b>${usdStr} $</b>)`);
     });
   }
 
+  const jamiSoni = buyurtma.jamiSoni || calcFallback?.jamiSoni || (items ? items.reduce((acc, it) => acc + (parseInt(it.soni) || 1), 0) : 0);
+  const jamiM2 = buyurtma.jamiM2 != null ? buyurtma.jamiM2 : (calcFallback?.jamiM2 || (items ? parseFloat(items.reduce((acc, it) => acc + (it.qatorM2 || 0), 0).toFixed(3)) : 0));
+  const jamiUsd = buyurtma.jamiUsd != null ? buyurtma.jamiUsd : (calcFallback?.jamiUsd || (items ? parseFloat(items.reduce((acc, it) => acc + (it.qatorUsd || 0), 0).toFixed(2)) : 0));
+  const jamiSom = buyurtma.jamiSom != null ? buyurtma.jamiSom : (calcFallback?.jamiSom || Math.round(jamiUsd * (buyurtma.kurs || 12900)));
+
   lines.push(chiziq);
-  lines.push(`🔢 <b>Jami mahsulot:</b> ${buyurtma.jamiSoni || 0} dona`);
-  lines.push(`📐 <b>Jami kvadratura:</b> ${buyurtma.jamiM2 || 0} m²`);
-  lines.push(`💰 <b>JAMI SUMMA:</b> <code>${buyurtma.jamiUsd} $</code>`);
-  lines.push(`💵 <b>SO'MDA:</b> <b>${formatSom(buyurtma.jamiSom)} so'm</b>`);
+  lines.push(`🔢 <b>Jami mahsulot:</b> ${jamiSoni} dona`);
+  lines.push(`📐 <b>Jami kvadratura:</b> ${jamiM2} m²`);
+  lines.push(`💰 <b>JAMI SUMMA:</b> <code>${jamiUsd} $</code>`);
+  lines.push(`💵 <b>SO'MDA:</b> <b>${formatSom(jamiSom)} so'm</b>`);
   lines.push(`💱 <b>Kurs:</b> 1$ = ${formatSom(buyurtma.kurs || 12900)} so'm`);
-  lines.push(`💳 <b>To'lov holati:</b> <b>${buyurtma.tolovHolati || 'Kutilmoqda'}</b>`);
+  lines.push(`💳 <b>To'lov holati:</b> <b>${buyurtma.tolovHolati || 'Naqd'}</b>`);
   lines.push(chiziq);
   lines.push('<i>Xaridingiz uchun rahmat! Sifat va qulaylik siz uchun.</i>');
 

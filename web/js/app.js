@@ -70,14 +70,14 @@ export const BUYURTMA_KATEGORIYALARI = [
 ];
 
 export const DEFAULT_PROFILLAR = [
-  { id: 5, nom: 'Rom yonga', chakanaNarx: 25, dilerNarx: 25, narx: 25, dillerNarx: 25, minNarx: true, tur: 'kichik', kesishTur: 'yonga' },
-  { id: 2, nom: 'Rom pastga', chakanaNarx: 23, dilerNarx: 23, narx: 23, dillerNarx: 23, minNarx: true, tur: 'kichik', kesishTur: 'pastga' },
-  { id: 1, nom: 'Eshik', chakanaNarx: 28, dilerNarx: 28, narx: 28, dillerNarx: 28, minNarx: false, tur: 'katta', kesishTur: 'eshik' },
+  { id: 5, nom: 'Rom yonga', chakanaNarx: 33, dilerNarx: 25, narx: 33, dillerNarx: 25, minNarx: true, tur: 'kichik', kesishTur: 'yonga' },
+  { id: 2, nom: 'Rom pastga', chakanaNarx: 32, dilerNarx: 23, narx: 32, dillerNarx: 23, minNarx: true, tur: 'kichik', kesishTur: 'pastga' },
+  { id: 1, nom: 'Eshik', chakanaNarx: 40, dilerNarx: 28, narx: 40, dillerNarx: 28, minNarx: false, tur: 'katta', kesishTur: 'eshik' },
   { id: 3, nom: 'Haytek', chakanaNarx: 700, dilerNarx: 390, narx: 700, dillerNarx: 390, minNarx: false, tur: 'haytek', kesishTur: 'haytek', isPerimeter: true }
 ];
 
 export function getSyncedProfillar(storagePrefix) {
-  const version = '2026_rates_v5';
+  const version = '2026_rates_v6';
   if (typeof localStorage === 'undefined') return DEFAULT_PROFILLAR;
   const savedVer = localStorage.getItem('prohisobchi_profillar_ver');
   if (savedVer !== version) {
@@ -107,7 +107,7 @@ let state = {
   selectedBrendId: 'standart',
   buyurtmalar: (typeof localStorage !== 'undefined' && JSON.parse(localStorage.getItem(storagePrefix + 'buyurtmalar'))) || [],
   orderRows: [
-    { id: 1, profilId: 5, eni: '', boy: '', soni: 1, tur: 'yonga' }
+    { id: 1, profilId: 5, eni: '', boy: '', soni: '', tur: 'yonga' }
   ],
   cuttingRows: [],
   cuttingSelectedBrendId: 'standart',
@@ -125,6 +125,9 @@ let state = {
   activeModalOrder: null,
   kassaModalType: 'kirim',
   qarzModalType: 'haqqim',
+  kassaFilterTime: 'bugun',
+  kassaFilterTur: 'hammasi',
+  qcCurrentSom: 0,
   tannarxStavkalari: getTannarxStavkalari(),
   qoldiqlar: (typeof localStorage !== 'undefined' && JSON.parse(localStorage.getItem('prohisobchi_qoldiqlar'))) || {
     kichkina: [],
@@ -302,7 +305,7 @@ function renderOrderRows() {
         </div>
         <div>
           <label style="font-size:9px;font-weight:700;color:var(--text-muted);display:block;text-align:center;">SONI</label>
-          <input type="number" min="1" class="inp-soni" data-id="${row.id}" value="${row.soni || 1}">
+          <input type="number" min="1" class="inp-soni" data-id="${row.id}" value="${row.soni ?? ''}" placeholder="1" onfocus="this.select()">
         </div>
       </div>
     `;
@@ -330,7 +333,8 @@ function renderOrderRows() {
     });
 
     box.querySelector('.inp-soni')?.addEventListener('input', (e) => {
-      row.soni = parseInt(e.target.value) || 1;
+      const val = e.target.value.trim();
+      row.soni = val === '' ? '' : (parseInt(val) || '');
       updateOrderSummary();
     });
 
@@ -382,9 +386,12 @@ function saveCurrentOrder() {
   const detallar = generatsiyaDetallar(formattedRows, tanlanganBrend);
   const bom = hisoblaBOM(detallar);
 
+  const now = new Date();
+  const sanaStr = `${now.toLocaleDateString('ru-RU')}, ${now.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })}`;
+
   const newOrder = {
     id: Date.now().toString().slice(-4),
-    sana: new Date().toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' }),
+    sana: sanaStr,
     mijozIsm: ism || 'Mijoz',
     mijozTel: tel || '',
     rang,
@@ -392,12 +399,15 @@ function saveCurrentOrder() {
     brendNom: tanlanganBrend.nom,
     muddat,
     status: 'Kutilmoqda',
+    narxTuri: state.orderNarxTuri,
+    kurs: state.kurs,
     jamiSoni: calc.jamiSoni,
     jamiM2: calc.jamiM2,
     jamiUsd: calc.jamiUsd,
     jamiSom: calc.jamiSom,
-    tolovHolati: state.orderTolovTuri,
+    tolovHolati: state.orderTolovTuri === 'Shunchaki' ? 'Shunchaki (Faqat hisoblash)' : state.orderTolovTuri,
     qatorlar: formattedRows,
+    qatorNatijalari: calc.qatorNatijalari,
     detallar,
     bom
   };
@@ -420,7 +430,7 @@ function saveCurrentOrder() {
         id: Date.now() + Math.random(),
         boy: r.boy,
         eni: r.eni,
-        soni: r.soni || 1,
+        soni: parseInt(r.soni) || 1,
         tur: r.tur // Rom pastga -> pastga, Rom yonga -> yonga, Eshik -> eshik, Haytek -> haytek
       }))
     });
@@ -448,6 +458,9 @@ function saveCurrentOrder() {
       izoh: `Buyurtma #${newOrder.id} nasiyasi`
     });
   }
+  // 'Shunchaki' bo'lganda kassaga ham, qarzga ham tegilmaydi!
+
+  updateHomeKassaCard();
 
   try {
     buyurtmaniGuruhgaYubor(newOrder, null, bom);
@@ -455,9 +468,13 @@ function saveCurrentOrder() {
     console.warn('Telegram yuborish:', e);
   }
 
-  showToast('Buyurtma saqlandi va guruhga yuborildi!', '✅');
+  if (state.orderTolovTuri === 'Shunchaki') {
+    showToast('Hisob-kitob saqlandi (Kassaga/qarzga yozilmadi)!', '📝');
+  } else {
+    showToast('Buyurtma saqlandi va guruhga yuborildi!', '✅');
+  }
 
-  state.orderRows = [{ id: state.nextRowId++, profilId: 1, eni: '', boy: '', soni: 1, tur: 'yonga' }];
+  state.orderRows = [{ id: state.nextRowId++, profilId: 1, eni: '', boy: '', soni: '', tur: 'yonga' }];
   document.getElementById('orderMijozIsm').value = '';
   document.getElementById('orderMijozTel').value = '';
   navigateToScreen('tarix');
@@ -544,7 +561,7 @@ function openOrderDetailModal(order) {
     <!-- Terminal preview chek -->
     <div style="margin-bottom:10px;">
       <span style="font-size:11px; font-weight:700; color:var(--text-muted); text-transform:uppercase; display:block; margin-bottom:4px;">CHEK MATNI:</span>
-      <pre class="preview-box">${generatsiyaIshchiXabari(order, null, order.bom, state.kurs)}</pre>
+      <pre class="preview-box">${generatsiyaMijozCheki(order)}</pre>
     </div>
 
     <!-- Buyurtma holatini o'zgartirish chiplari -->
@@ -684,7 +701,7 @@ function renderCuttingOrderRows() {
   container.innerHTML = '';
   if (!state.cuttingRows || state.cuttingRows.length === 0) {
     state.cuttingRows = [
-      { id: Date.now(), profilId: 1, eni: '', boy: '', soni: 1, tur: 'yonga' }
+      { id: Date.now(), profilId: 1, eni: '', boy: '', soni: '', tur: 'yonga' }
     ];
   }
 
@@ -717,7 +734,7 @@ function renderCuttingOrderRows() {
         </div>
         <div>
           <label style="font-size:9px;font-weight:700;color:var(--text-muted);display:block;text-align:center;">SONI</label>
-          <input type="number" min="1" class="inp-cut-soni" data-id="${row.id}" value="${row.soni || 1}">
+          <input type="number" min="1" class="inp-cut-soni" data-id="${row.id}" value="${row.soni ?? ''}" placeholder="1" onfocus="this.select()">
         </div>
       </div>
     `;
@@ -739,7 +756,8 @@ function renderCuttingOrderRows() {
     });
 
     box.querySelector('.inp-cut-soni')?.addEventListener('input', (e) => {
-      row.soni = parseInt(e.target.value) || 1;
+      const val = e.target.value.trim();
+      row.soni = val === '' ? '' : (parseInt(val) || '');
     });
 
     box.querySelector('.del-cut-row-btn')?.addEventListener('click', () => {
@@ -876,8 +894,6 @@ function runCuttingLogic(showToastMsg = false) {
     }
     if (detailsCard) detailsCard.style.display = 'none';
     if (groupedContainer) groupedContainer.innerHTML = '';
-    const textPlanCard = document.getElementById('cuttingTextPlanCard');
-    if (textPlanCard) textPlanCard.style.display = 'none';
     if (usageCard) usageCard.style.display = 'none';
     if (tannarxCard) tannarxCard.innerHTML = '';
     if (showToastMsg) showToast('Avval o\'lchamlarni kiriting!', '⚠️');
@@ -970,27 +986,6 @@ function runCuttingLogic(showToastMsg = false) {
 
     groupedHtml += `</div>`;
     groupedContainer.innerHTML = groupedHtml;
-  }
-
-  // 2.5. Matnli 🔪 KESISH REJASI (RASKROY) BLOKI
-  const textPlanCard = document.getElementById('cuttingTextPlanCard');
-  const textPlanContainer = document.getElementById('cuttingTextPlanContainer');
-  if (textPlanCard && textPlanContainer) {
-    textPlanCard.style.display = 'block';
-    let planHtml = '';
-    guruhlangan.guruhNatijalar.forEach(g => {
-      planHtml += `<div style="margin-bottom:12px; background:var(--bg-input); padding:10px 12px; border-radius:10px; border:1px solid var(--border-card);">`;
-      planHtml += `<div style="font-weight:800; font-size:12px; color:var(--brand-emerald); margin-bottom:6px;">📌 ${g.nom}:</div>`;
-      (g.natija?.tayoqlar || []).forEach((t, tIdx) => {
-        const kesimStr = t.kesimlar.join(' + ');
-        const qoldiqStr = t.aniqQoldiq > 0 ? ` | qoldiq: <b style="color:var(--text-muted);">${t.aniqQoldiq} sm</b>` : '';
-        planHtml += `<div style="padding:4px 0; border-bottom:1px dashed var(--border-card); font-size:11px;">`;
-        planHtml += `<b>${tIdx + 1}-profil (600 sm):</b> <span style="color:var(--brand-emerald); font-weight:700;">${kesimStr}</span>${qoldiqStr}`;
-        planHtml += `</div>`;
-      });
-      planHtml += `</div>`;
-    });
-    textPlanContainer.innerHTML = planHtml;
   }
 
   // 3. Vizual lentalar
@@ -1132,22 +1127,67 @@ function openKassaModal(tur) {
 }
 
 function renderKassaScreen() {
-  const bal = hisoblaKassaBalansi();
-  document.getElementById('kassaMainBalanceSom').textContent = `${formatSom(bal.sofBalansSom)} so'm`;
-  document.getElementById('kassaPillKirim').textContent = `+${formatSom(bal.jamiKirimSom)} so'm`;
-  document.getElementById('kassaPillChiqim').textContent = `-${formatSom(bal.jamiChiqimSom)} so'm`;
+  updateHomeKassaCard();
 
   const container = document.getElementById('kassaTrxList');
   if (!container) return;
 
   const moliya = getMoliya();
-  if (moliya.kassaTranzaksiyalar.length === 0) {
-    container.innerHTML = '<div style="text-align:center;padding:20px;color:var(--text-muted);font-size:12px;">Hali tranzaksiyalar yo\'q.</div>';
+  const allTrx = moliya.kassaTranzaksiyalar || [];
+
+  const now = new Date();
+  const todayStr = now.toLocaleDateString('ru-RU');
+  const m = String(now.getMonth() + 1).padStart(2, '0');
+  const monthStr = `.${m}.${now.getFullYear()}`;
+
+  const timeFilter = state.kassaFilterTime || 'bugun';
+  const typeFilter = state.kassaFilterTur || 'hammasi';
+
+  // Vaqt bo'yicha filter
+  const periodTrx = allTrx.filter(t => {
+    if (timeFilter === 'bugun') {
+      return t.sana && t.sana.startsWith(todayStr);
+    }
+    if (timeFilter === 'oy') {
+      return t.sana && t.sana.includes(monthStr);
+    }
+    return true;
+  });
+
+  // Davr statistikasi (Kirim / Chiqim)
+  const pKirim = periodTrx.filter(t => t.tur === 'kirim').reduce((acc, t) => acc + (parseFloat(t.summaSom) || 0), 0);
+  const pChiqim = periodTrx.filter(t => t.tur === 'chiqim').reduce((acc, t) => acc + (parseFloat(t.summaSom) || 0), 0);
+  const pNet = pKirim - pChiqim;
+
+  const lblEl = document.getElementById('kassaPeriodLabel');
+  const netEl = document.getElementById('kassaPeriodNetBal');
+  const kirEl = document.getElementById('kassaPeriodKirim');
+  const chiqEl = document.getElementById('kassaPeriodChiqim');
+  const countBadge = document.getElementById('kassaTrxCountBadge');
+
+  if (lblEl) {
+    lblEl.textContent = timeFilter === 'bugun' ? "Bugungi hisobot:" : (timeFilter === 'oy' ? "Shu oylik hisobot:" : "Barcha davr hisoboti:");
+  }
+  if (netEl) netEl.textContent = `${pNet >= 0 ? '+' : ''}${formatSom(pNet)} so'm`;
+  if (kirEl) kirEl.textContent = `+${formatSom(pKirim)} so'm`;
+  if (chiqEl) chiqEl.textContent = `-${formatSom(pChiqim)} so'm`;
+
+  // Tur bo'yicha filter
+  const filtered = periodTrx.filter(t => {
+    if (typeFilter === 'kirim') return t.tur === 'kirim';
+    if (typeFilter === 'chiqim') return t.tur === 'chiqim';
+    return true;
+  });
+
+  if (countBadge) countBadge.textContent = `${filtered.length} ta amal`;
+
+  if (filtered.length === 0) {
+    container.innerHTML = '<div style="text-align:center;padding:24px;color:var(--text-muted);font-size:12px;">Tanlangan filtr bo\'yicha amallar topilmadi.</div>';
     return;
   }
 
   container.innerHTML = '';
-  moliya.kassaTranzaksiyalar.forEach(t => {
+  filtered.forEach(t => {
     const row = document.createElement('div');
     row.className = 'trx-item-row';
     const isKirim = t.tur === 'kirim';
@@ -1157,7 +1197,7 @@ function renderKassaScreen() {
           ${isKirim ? '📥' : '📤'}
         </div>
         <div class="trx-details">
-          <h4>${t.izoh}</h4>
+          <h4>${t.izoh || (isKirim ? 'Kirim' : 'Chiqim')}</h4>
           <span>${t.sana}</span>
         </div>
       </div>
@@ -1218,16 +1258,17 @@ function renderQarzScreen() {
       <div class="qarz-card-body">
         <span class="qarz-summa" style="color:${isHaq ? 'var(--color-kirim)' : 'var(--color-chiqim)'};">${formatSom(q.summaSom)} so'm</span>
         <button class="btn-outline-pill btn-pay-qarz" data-id="${q.id}">
-          ${isHaq ? 'To\'lov olish 💰' : 'To\'lash 💸'}
+          ${isHaq ? 'To\'landi 💰' : 'To\'lash 💸'}
         </button>
       </div>
     `;
 
     card.querySelector('.btn-pay-qarz').addEventListener('click', () => {
-      if (confirm(`Ushbu qarz (${q.shaxs}: ${formatSom(q.summaSom)} so'm) yopilsinmi va kassaga kiritilsinmi?`)) {
+      if (confirm(`Ushbu qarz (${q.shaxs}: ${formatSom(q.summaSom)} so'm) to'landimi? Summa to'g'ridan-to'g'ri Kassa balansiga qo'shiladi.`)) {
         qarzYopish(q.id, true);
         renderQarzScreen();
-        showToast('Qarz yopildi va kassaga kiritildi!', '✅');
+        updateHomeKassaCard();
+        showToast(`Qarz yopildi va ${formatSom(q.summaSom)} so'm Kassaga kiritildi!`, '🟢');
       }
     });
 
@@ -1266,6 +1307,7 @@ function updateQuickCalc() {
     true
   );
 
+  state.qcCurrentSom = calc.jamiSom;
   document.getElementById('qcCounterVal').textContent = soni;
   document.getElementById('qcResultM2').textContent = `${calc.jamiM2.toFixed(2)} m²`;
   document.getElementById('qcResultUsd').textContent = `${calc.jamiUsd.toFixed(2)} $`;
@@ -1316,22 +1358,83 @@ function renderOmborScreen() {
   }
 }
 
+export function updateHomeKassaCard() {
+  const bal = hisoblaKassaBalansi();
+  const elBal = document.getElementById('homeKassaSofBalans');
+  const elKir = document.getElementById('homeKassaKirim');
+  const elChiq = document.getElementById('homeKassaChiqim');
+  const elHeader = document.getElementById('headerKassaVal');
+  const elKassaMain = document.getElementById('kassaMainBalanceSom');
+  const elKassaKirim = document.getElementById('kassaPillKirim');
+  const elKassaChiqim = document.getElementById('kassaPillChiqim');
+
+  if (elBal) elBal.textContent = `${formatSom(bal.sofBalansSom)} so'm`;
+  if (elKir) elKir.textContent = `+${formatSom(bal.jamiKirimSom)} so'm`;
+  if (elChiq) elChiq.textContent = `-${formatSom(bal.jamiChiqimSom)} so'm`;
+  if (elHeader) elHeader.textContent = `${formatSom(bal.sofBalansSom)} so'm`;
+  if (elKassaMain) elKassaMain.textContent = `${formatSom(bal.sofBalansSom)} so'm`;
+  if (elKassaKirim) elKassaKirim.textContent = `+${formatSom(bal.jamiKirimSom)} so'm`;
+  if (elKassaChiqim) elKassaChiqim.textContent = `-${formatSom(bal.jamiChiqimSom)} so'm`;
+}
+
+export function populateBrendSelects() {
+  const orderSel = document.getElementById('orderBrendSelect');
+  const cutSel = document.getElementById('cuttingBrendSelect');
+  if (!state.brendlar || state.brendlar.length === 0) {
+    state.brendlar = getProfilBrendlari();
+  }
+  const opts = state.brendlar.map(b => `<option value="${b.id}">${b.nom}</option>`).join('');
+  if (orderSel) {
+    const prevVal = orderSel.value;
+    orderSel.innerHTML = opts;
+    if (prevVal && state.brendlar.some(b => b.id === prevVal)) {
+      orderSel.value = prevVal;
+    } else {
+      orderSel.value = state.brendlar[0].id;
+      state.selectedBrendId = state.brendlar[0].id;
+    }
+  }
+  if (cutSel) {
+    const prevCutVal = cutSel.value;
+    cutSel.innerHTML = opts;
+    if (prevCutVal && state.brendlar.some(b => b.id === prevCutVal)) {
+      cutSel.value = prevCutVal;
+    } else {
+      cutSel.value = state.brendlar[0].id;
+      state.cuttingSelectedBrendId = state.brendlar[0].id;
+    }
+  }
+}
+
 function renderSozlamalarScreen() {
   const tbl = document.getElementById('sozlamaProfillarTable');
   if (tbl) {
     tbl.innerHTML = '';
     state.profillar.forEach(p => {
-      const narxMatni = (p.isPerimeter || p.tur === 'haytek')
-        ? `Standart: ${p.chakanaNarx || p.narx} so'm/sm • Diler: ${p.dilerNarx || p.dillerNarx} so'm/sm`
-        : `Standart: $${p.chakanaNarx || p.narx} • Diler: $${p.dilerNarx || p.dillerNarx || p.narx}`;
-      tbl.innerHTML += `
-        <div style="padding:10px 0;border-bottom:1px solid var(--border-card);display:flex;justify-content:space-between;align-items:center;">
+      const isPerimeter = (p.isPerimeter || p.tur === 'haytek');
+      const unit = isPerimeter ? "so'm/sm" : "$/m²";
+      const valStandart = p.chakanaNarx ?? p.narx ?? (isPerimeter ? 700 : 33);
+      const valDiler = p.dilerNarx ?? p.dillerNarx ?? (isPerimeter ? 390 : 25);
+
+      const card = document.createElement('div');
+      card.style.cssText = 'padding:10px 0; border-bottom:1px solid var(--border-card); display:flex; flex-direction:column; gap:8px;';
+      card.innerHTML = `
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+          <b style="font-size:13px; color:var(--text-primary);">${p.nom}</b>
+          <span style="font-size:11px; font-weight:700; color:var(--brand-emerald); background:rgba(16,185,129,0.1); padding:2px 8px; border-radius:6px;">${unit}</span>
+        </div>
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px;">
           <div>
-            <div style="font-weight:700;font-size:13px;">${p.nom}</div>
-            <div style="font-size:11px;color:var(--text-muted);">${narxMatni}</div>
+            <label style="font-size:10px; font-weight:700; color:var(--text-muted); display:block; margin-bottom:3px;">STANDART (CHAKANA)</label>
+            <input type="number" step="${isPerimeter ? '10' : '1'}" class="input-profil-price" data-id="${p.id}" data-type="standart" value="${valStandart}" style="width:100%; padding:8px; border-radius:8px; border:1.5px solid var(--border-card); font-size:13px; font-weight:800; font-family:var(--font-mono);">
+          </div>
+          <div>
+            <label style="font-size:10px; font-weight:700; color:var(--text-muted); display:block; margin-bottom:3px;">DILER (ULGURJI)</label>
+            <input type="number" step="${isPerimeter ? '10' : '1'}" class="input-profil-price" data-id="${p.id}" data-type="diler" value="${valDiler}" style="width:100%; padding:8px; border-radius:8px; border:1.5px solid var(--border-card); font-size:13px; font-weight:800; font-family:var(--font-mono);">
           </div>
         </div>
       `;
+      tbl.appendChild(card);
     });
   }
 
@@ -1340,17 +1443,35 @@ function renderSozlamalarScreen() {
   if (brendTbl) {
     brendTbl.innerHTML = '';
     state.brendlar.forEach(b => {
-      brendTbl.innerHTML += `
-        <div style="padding:8px 0; border-bottom:1px solid var(--border-card); display:flex; justify-content:space-between; align-items:center; font-size:12px;">
-          <div>
+      const isStandart = b.id === 'standart';
+      const row = document.createElement('div');
+      row.style.cssText = 'padding:10px 0; border-bottom:1px solid var(--border-card); display:flex; justify-content:space-between; align-items:center; font-size:12px;';
+      row.innerHTML = `
+        <div style="flex:1;">
+          <div style="display:flex; align-items:center; gap:6px;">
             <b>${b.nom}</b>
-            <div style="color:var(--text-muted); font-size:11px;">
-              Rom: +${b.romEnDopusk}sm | Eshik: +${b.eshikEnDopusk}sm | Ruchka: ${b.ruchkaDopusk}sm
-            </div>
+            ${isStandart ? '<span style="font-size:10px; background:#E6FBF2; color:#059669; padding:1px 6px; border-radius:4px; font-weight:700;">Standart</span>' : ''}
           </div>
-          <span style="font-size:11px; font-weight:700; color:var(--brand-emerald);">Arra: ${b.arra}sm</span>
+          <div style="color:var(--text-muted); font-size:11px; margin-top:2px;">
+            Rom: +${b.romEnDopusk}sm | Eshik: +${b.eshikEnDopusk}sm | Ruchka: ${b.ruchkaDopusk}sm | Arra: ${b.arra}sm
+          </div>
         </div>
+        ${!isStandart ? `<button class="btn-delete-brend" data-id="${b.id}" style="background:transparent; border:none; color:#EF4444; font-size:16px; cursor:pointer; padding:4px 8px;" title="Brendni o'chirish">🗑️</button>` : ''}
       `;
+      brendTbl.appendChild(row);
+    });
+
+    brendTbl.querySelectorAll('.btn-delete-brend').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const bid = btn.dataset.id;
+        if (confirm("Ushbu profil brendini ro'yxatdan o'chirmoqchimisiz?")) {
+          state.brendlar = state.brendlar.filter(x => x.id !== bid);
+          saqlaProfilBrendlari(state.brendlar);
+          populateBrendSelects();
+          renderSozlamalarScreen();
+          showToast('Brend o\'chirildi', '🗑️');
+        }
+      });
     });
   }
 
@@ -1578,6 +1699,8 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   document.getElementById('btnHeroNewOrder')?.addEventListener('click', () => navigateToScreen('yangi'));
+  document.getElementById('homeKassaCard')?.addEventListener('click', () => navigateToScreen('kassa'));
+  document.getElementById('headerKassaPill')?.addEventListener('click', () => navigateToScreen('kassa'));
 
   // Theme toggle
   document.getElementById('themeToggleBtn')?.addEventListener('click', toggleTheme);
@@ -1640,7 +1763,7 @@ document.addEventListener('DOMContentLoaded', () => {
       profilId: 1,
       eni: '',
       boy: '',
-      soni: 1,
+      soni: '',
       tur: 'yonga'
     });
     renderOrderRows();
@@ -1673,7 +1796,7 @@ document.addEventListener('DOMContentLoaded', () => {
       profilId: 1,
       eni: '',
       boy: '',
-      soni: 1,
+      soni: '',
       tur: 'yonga'
     });
     renderCuttingOrderRows();
@@ -2058,25 +2181,126 @@ document.addEventListener('DOMContentLoaded', () => {
     navigateToScreen('yangi');
   });
 
-  // Kalkulyatordan to'g'ridan-to'g'ri Kassaga Kirim/Chiqim
-  document.getElementById('qcBtnKassaKirim')?.addEventListener('click', () => {
-    const summaSom = (hisoblaM2(document.getElementById('qcInputEni')?.value, document.getElementById('qcInputBoy')?.value) * state.qc.soni * 23) * state.kurs;
+  // Kalkulyator Rejimlari almashishi (To'r hisobi vs Sex Xarajati)
+  document.getElementById('qcModeTorBtn')?.addEventListener('click', () => {
+    document.getElementById('qcModeTorBtn').classList.add('active');
+    document.getElementById('qcModeXarajatBtn').classList.remove('active');
+    document.getElementById('qcModeTorContainer').style.display = 'block';
+    document.getElementById('qcModeXarajatContainer').style.display = 'none';
+  });
+
+  document.getElementById('qcModeXarajatBtn')?.addEventListener('click', () => {
+    document.getElementById('qcModeXarajatBtn').classList.add('active');
+    document.getElementById('qcModeTorBtn').classList.remove('active');
+    document.getElementById('qcModeTorContainer').style.display = 'none';
+    document.getElementById('qcModeXarajatContainer').style.display = 'block';
+  });
+
+  // Sex Xarajati kalkulyatori (narx * miqdor)
+  const calcXarajatSum = () => {
+    const n = parseFloat(document.getElementById('qcXarajatNarxInput')?.value) || 0;
+    const m = parseFloat(document.getElementById('qcXarajatMiqdorInput')?.value) || 0;
+    const jami = n * m;
+    const el = document.getElementById('qcXarajatJamiSom');
+    if (el) el.textContent = `${formatSom(jami)} so'm`;
+    return jami;
+  };
+
+  document.getElementById('qcXarajatNarxInput')?.addEventListener('input', calcXarajatSum);
+  document.getElementById('qcXarajatMiqdorInput')?.addEventListener('input', calcXarajatSum);
+
+  document.getElementById('btnXarajatKassaChiqim')?.addEventListener('click', () => {
+    const jami = calcXarajatSum();
+    if (jami <= 0) {
+      alert('Narx va miqdorni kiriting!');
+      return;
+    }
+    const izoh = document.getElementById('qcXarajatIzohInput')?.value?.trim() || 'Sex xarajati';
+    tranzaksiyaQosh({
+      tur: 'chiqim',
+      summaSom: jami,
+      izoh
+    });
+    updateHomeKassaCard();
+    showToast(`Kassadan chiqim qilindi: -${formatSom(jami)} so'm`, '🔴');
+    document.getElementById('qcXarajatNarxInput').value = '';
+    document.getElementById('qcXarajatIzohInput').value = '';
+    calcXarajatSum();
+  });
+
+  document.getElementById('btnXarajatKassaKirim')?.addEventListener('click', () => {
+    const jami = calcXarajatSum();
+    if (jami <= 0) {
+      alert('Narx va miqdorni kiriting!');
+      return;
+    }
+    const izoh = document.getElementById('qcXarajatIzohInput')?.value?.trim() || 'Kalkulyatordan daromad';
     tranzaksiyaQosh({
       tur: 'kirim',
-      summaSom,
-      izoh: `Kalkulyatordan tezkor kirim (${state.qc.soni} dona to'r)`
+      summaSom: jami,
+      izoh
     });
-    showToast(`Kassaga kirim qilindi: ${formatSom(summaSom)} so'm`, '🟢');
+    updateHomeKassaCard();
+    showToast(`Kassaga kirim qilindi: +${formatSom(jami)} so'm`, '🟢');
+    document.getElementById('qcXarajatNarxInput').value = '';
+    document.getElementById('qcXarajatIzohInput').value = '';
+    calcXarajatSum();
+  });
+
+  // Kalkulyatordan to'g'ridan-to'g'ri Kassaga Kirim/Chiqim (To'r hisobidan)
+  document.getElementById('qcBtnKassaKirim')?.addEventListener('click', () => {
+    const summaSom = state.qcCurrentSom || 0;
+    if (summaSom <= 0) {
+      alert('Avval o\'lchamlarni kiriting!');
+      return;
+    }
+    const izoh = prompt('Kassaga kirim maqsadi:', `To'r buyurtmasi tushumi (${state.qc.soni} dona)`);
+    if (izoh !== null) {
+      tranzaksiyaQosh({
+        tur: 'kirim',
+        summaSom,
+        izoh: izoh.trim() || 'Kalkulyatordan kirim'
+      });
+      updateHomeKassaCard();
+      showToast(`Kassaga kirim qilindi: +${formatSom(summaSom)} so'm`, '🟢');
+    }
   });
 
   document.getElementById('qcBtnKassaChiqim')?.addEventListener('click', () => {
-    const summaSom = (hisoblaM2(document.getElementById('qcInputEni')?.value, document.getElementById('qcInputBoy')?.value) * state.qc.soni * 15) * state.kurs;
-    tranzaksiyaQosh({
-      tur: 'chiqim',
-      summaSom,
-      izoh: `Kalkulyatordan tezkor chiqim`
+    const summaSom = state.qcCurrentSom || 0;
+    if (summaSom <= 0) {
+      alert('Avval o\'lchamlarni kiriting!');
+      return;
+    }
+    const izoh = prompt('Kassadan chiqim maqsadi / Kimga ketdi:', `To'r xarajatlari (${state.qc.soni} dona)`);
+    if (izoh !== null) {
+      tranzaksiyaQosh({
+        tur: 'chiqim',
+        summaSom,
+        izoh: izoh.trim() || 'Kalkulyatordan chiqim'
+      });
+      updateHomeKassaCard();
+      showToast(`Kassadan chiqim qilindi: -${formatSom(summaSom)} so'm`, '🔴');
+    }
+  });
+
+  // Kassa filtrlari hodisalari (Vaqt va Tur)
+  document.querySelectorAll('#kassaTimeFilters .filter-chip').forEach(chip => {
+    chip.addEventListener('click', () => {
+      document.querySelectorAll('#kassaTimeFilters .filter-chip').forEach(c => c.classList.remove('active'));
+      chip.classList.add('active');
+      state.kassaFilterTime = chip.dataset.time;
+      renderKassaScreen();
     });
-    showToast(`Kassadan chiqim qilindi: ${formatSom(summaSom)} so'm`, '🔴');
+  });
+
+  document.querySelectorAll('#kassaTypeFilters .filter-chip').forEach(chip => {
+    chip.addEventListener('click', () => {
+      document.querySelectorAll('#kassaTypeFilters .filter-chip').forEach(c => c.classList.remove('active'));
+      chip.classList.add('active');
+      state.kassaFilterTur = chip.dataset.tur;
+      renderKassaScreen();
+    });
   });
 
   // Ombor tablari
@@ -2153,7 +2377,7 @@ document.addEventListener('DOMContentLoaded', () => {
       localStorage.removeItem('prohisobchi_moliya');
       localStorage.removeItem('prohisobchi_ombor');
       state.buyurtmalar = [];
-      state.orderRows = [{ id: 1, profilId: 1, eni: '', boy: '', soni: 1, tur: 'yonga' }];
+      state.orderRows = [{ id: 1, profilId: 1, eni: '', boy: '', soni: '', tur: 'yonga' }];
       state.cuttingRows = [];
       saqlaMoliya(DEFAULT_MOLIYA);
       saqlaOmbor(DEFAULT_OMBOR);
@@ -2164,8 +2388,84 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 
+  // Narxlarni saqlash
+  document.getElementById('btnSaveProfillarPrices')?.addEventListener('click', () => {
+    const inputs = document.querySelectorAll('.input-profil-price');
+    inputs.forEach(inp => {
+      const pid = parseInt(inp.dataset.id);
+      const type = inp.dataset.type;
+      const val = parseFloat(inp.value);
+      if (!isNaN(val) && val >= 0) {
+        const profil = state.profillar.find(p => p.id === pid);
+        if (profil) {
+          if (type === 'standart') {
+            profil.chakanaNarx = val;
+            profil.narx = val;
+          } else if (type === 'diler') {
+            profil.dilerNarx = val;
+            profil.dillerNarx = val;
+          }
+        }
+      }
+    });
+    localStorage.setItem(storagePrefix + 'profillar', JSON.stringify(state.profillar));
+    localStorage.setItem('prohisobchi_profillar', JSON.stringify(state.profillar));
+    updateOrderSummary();
+    updateQuickCalc();
+    showToast('Yangi narxlar muvaffaqiyatli saqlandi!', '💾');
+  });
+
+  // Yangi Brend qo'shish modali
+  document.getElementById('btnOpenAddBrendModal')?.addEventListener('click', () => {
+    const nomInp = document.getElementById('modalBrendNomInput');
+    if (nomInp) nomInp.value = '';
+    const rEn = document.getElementById('modalBrendRomEn');
+    if (rEn) rEn.value = '2.0';
+    const eEn = document.getElementById('modalBrendEshikEn');
+    if (eEn) eEn.value = '4.0';
+    const ruch = document.getElementById('modalBrendRuchka');
+    if (ruch) ruch.value = '-0.8';
+    const arra = document.getElementById('modalBrendArra');
+    if (arra) arra.value = '0.3';
+    document.getElementById('modalAddBrendOverlay')?.classList.add('active');
+  });
+
+  document.getElementById('btnCloseAddBrendModal')?.addEventListener('click', () => {
+    document.getElementById('modalAddBrendOverlay')?.classList.remove('active');
+  });
+
+  document.getElementById('btnSubmitAddBrend')?.addEventListener('click', () => {
+    const nom = document.getElementById('modalBrendNomInput')?.value?.trim();
+    if (!nom) {
+      alert('Iltimos, brend nomini kiriting!');
+      return;
+    }
+    const romEn = parseFloat(document.getElementById('modalBrendRomEn')?.value) || 2.0;
+    const eshikEn = parseFloat(document.getElementById('modalBrendEshikEn')?.value) || 4.0;
+    const ruchka = parseFloat(document.getElementById('modalBrendRuchka')?.value) || -0.8;
+    const arra = parseFloat(document.getElementById('modalBrendArra')?.value) || 0.3;
+
+    const newBrend = {
+      id: nom.toLowerCase().replace(/[^a-z0-9]/g, '') + '_' + Date.now().toString().slice(-4),
+      nom,
+      romEnDopusk: romEn,
+      eshikEnDopusk: eshikEn,
+      ruchkaDopusk: ruchka,
+      arra
+    };
+
+    state.brendlar.push(newBrend);
+    saqlaProfilBrendlari(state.brendlar);
+    populateBrendSelects();
+    renderSozlamalarScreen();
+    document.getElementById('modalAddBrendOverlay')?.classList.remove('active');
+    showToast(`"${nom}" brendi muvaffaqiyatli qo'shildi!`, '🏷️');
+  });
+
   // Dastlabki render
   updateKursDisplay();
+  populateBrendSelects();
+  updateHomeKassaCard();
   renderOrderRows();
   renderCuttingOrderRows();
   runCuttingLogic(false);
