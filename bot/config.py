@@ -7,7 +7,7 @@ load_dotenv(os.path.join(os.path.dirname(BOT_DIR), ".env"))
 load_dotenv()
 
 # Telegram Bot sozlamalari
-BOT_TOKEN = os.getenv("BOT_TOKEN", "8679001022:AAEIMoxtqikm1uvCiQu6RUBfT7tvEp9EWSs")
+BOT_TOKEN = os.getenv("BOT_TOKEN", "8679001022:AAECwKX3Cni7t_7PLstuNtDHWNSU04jAr3I")
 DEFAULT_GROUP_CHAT_ID = os.getenv("GROUP_CHAT_ID", "-1004321522025")
 
 # Telegram Mini App URL (Railway domeniga bog'langan)
